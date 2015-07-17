@@ -20,6 +20,12 @@ enum {
   TYPE_UNK9     = 0x2800,
   TYPE_UNK10    = 0x3200,
   TYPE_UNK11    = 0x2300,
+  TYPE_UNK12    = 0x2900,
+  TYPE_UNK13    = 0x2200,
+  TYPE_UNK14    = 0x3100,
+  TYPE_UNK15    = 0x2a00,
+  TYPE_UNK16    = 0x2500,
+  TYPE_UNK17    = 0x0600,
 };
 
 struct S
@@ -29,7 +35,9 @@ struct S
   uint16_t type;
   uint16_t val16;
   unsigned char len;
-  unsigned char dummy2[23];
+  unsigned char dummy2[11];
+  unsigned char twelve;
+  unsigned char dummy3[11];
 };
 
 static void print2( const unsigned char * buffer )
@@ -118,12 +126,17 @@ void print_multistring( const unsigned char * buffer, unsigned int len )
 
 static void print( const S & s, const unsigned char buffer[] )
 {
-  std::cout << "(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key << "," << (unsigned int)s.key2 << ") ";
+  static int didx = 0;
+  if( s.twelve != 12 )
+  {
+    std::cout << "ERROR:";
+  }
+  std::cout << didx++ << ":(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key << "," << (unsigned int)s.key2 << ") ";
   std::cout << std::dec;
   switch( s.type )
   {
     case TYPE_STRING:
-      assert( s.key2 == 0 );
+      //assert( s.key2 == 0 );
       assert( s.val16 == 0xff00 );
       assert( s.dummy2[0] == 0 );
       std::cout << " ST ";
@@ -132,8 +145,8 @@ static void print( const S & s, const unsigned char buffer[] )
       std::cout << std::endl;
       break;
     case TYPE_DATETIME:
-      assert( s.key2 == 0 );
-      assert( s.val16 == 0x0 );
+      //assert( s.key2 == 0 );
+      //assert( s.val16 == 0x0 );
       std::cout << " DT ";
       std::cout << (int)s.len << " [" << buffer << "]";
       print2( s.dummy2 );
@@ -165,14 +178,14 @@ static void print( const S & s, const unsigned char buffer[] )
     case TYPE_UNK3:
       std::cout << " U3 ";
       std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 4 || s.len == 16 || s.len == 8 || s.len == 32 || s.len == 0 );
+      assert( s.len == 4 || s.len == 16 || s.len == 8 || s.len == 32 || s.len == 0 || s.len == 24 );
       print_type<uint32_t>( buffer, s.len );
       print2( s.dummy2 ); std::cout << std::endl;
       break;
     case TYPE_UNK4:
       std::cout << " U4 ";
       std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 36 || s.len == 40 || s.len == 4 || s.len == 16 );
+      //assert( s.len == 36 || s.len == 40 || s.len == 4 || s.len == 16 || s.len == 24 || s.len == 8 || s.len == 92 );
       print_type<uint32_t>( buffer, s.len, false );
       print2( s.dummy2 ); std::cout << std::endl;
       break;
@@ -185,7 +198,7 @@ static void print( const S & s, const unsigned char buffer[] )
       break;
     case TYPE_UNK6:
       std::cout << " WST ";
-      assert( s.val16 == 0 || s.val16 == 256 );
+      //assert( s.val16 == 0 || s.val16 == 256 || s.val16 ==  );
       //std::cout << (int)s.len << " [ ?? ]" << std::endl;
       print_multistring( buffer, s.len );
       print2( s.dummy2 ); std::cout << std::endl;
@@ -200,7 +213,7 @@ static void print( const S & s, const unsigned char buffer[] )
    case TYPE_UNK9:
       std::cout << " FL ";
       std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 4 || s.len == 32 || s.len == 12 || s.len == 0 || s.len == 48 );
+      assert( s.len == 4 || s.len == 32 || s.len == 12 || s.len == 0 || s.len == 48 || s.len == 8 );
       print_type<float>( buffer, s.len );
       print2( s.dummy2 ); std::cout << std::endl;
       break;
@@ -214,10 +227,52 @@ static void print( const S & s, const unsigned char buffer[] )
      case TYPE_UNK11:
       std::cout << " U11 ";
       std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 16 || s.len == 132 );
+      //assert( s.len == 16 || s.len == 132 );
       print_type<uint32_t>( buffer, s.len );
       print2( s.dummy2 ); std::cout << std::endl;
       break;
+      case TYPE_UNK12:
+      std::cout << " U12 ";
+      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
+      //assert( s.len == 8 );
+      print_type<int16_t>( buffer, s.len );
+      print2( s.dummy2 ); std::cout << std::endl;
+      break;
+       case TYPE_UNK13:
+      std::cout << " U13 ";
+      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
+      assert( s.len == 2 || s.len == 0 );
+      print_type<uint16_t>( buffer, s.len );
+      print2( s.dummy2 ); std::cout << std::endl;
+      break;
+        case TYPE_UNK14:
+      std::cout << " U14 ";
+      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
+      assert( s.len == 8 || s.len == 16 || s.len == 0 );
+      print_type<uint16_t>( buffer, s.len );
+      print2( s.dummy2 ); std::cout << std::endl;
+      break;
+         case TYPE_UNK15:
+      std::cout << " U15 ";
+      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
+      //assert( s.len == 4 );
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.dummy2 ); std::cout << std::endl;
+      break;
+         case TYPE_UNK16:
+      std::cout << " U16 ";
+      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
+      assert( s.len == 4 || s.len == 0 );
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.dummy2 ); std::cout << std::endl;
+      break;
+          case TYPE_UNK17:
+      std::cout << " U17 ";
+      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.dummy2 ); std::cout << std::endl;
+      break;
+ 
     default:
       std::cout << " ?? (" << std::hex << s.type << ") ";
       std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
@@ -241,8 +296,8 @@ int main(int argc, char * argv[])
   uint32_t n;
   is.read( (char*)&n, sizeof(n) );
   std::cout << n << std::endl;
-  for( int i = 0; i < n + 850; ++i )
-  //for( int i = 0; i < n + 0; ++i )
+  //for( int i = 0; i < n + 850; ++i )
+  for( int i = 0; i < n + 0; ++i )
   {
 
     is.read( (char*)&s, sizeof(s) );
@@ -250,7 +305,153 @@ int main(int argc, char * argv[])
     print( s , buffer );
   }
 
+  is.read( (char*)&n, sizeof(n) );
+  std::cout << std::dec << n << std::endl;
+  n = 70;
+  for( int i = 0; i < n + 0; ++i )
+  {
+
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    print( s , buffer );
+  }
+
+  //is.read( (char*)&n, sizeof(n) );
+  std::cout << "n=" << std::dec << n << std::endl;
+  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
+    n = 57; // skip some junk ???
+ 
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    //print( s , buffer );
+  }
+
+  std::cout << "n=" << std::dec << n << std::endl;
+  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
+  n = 20;
+ 
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    print( s , buffer );
+  }
+
+  std::cout << "n=" << std::dec << n << std::endl;
+  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
+   n= 11;
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    //print( s , buffer );
+  }
+  is.seekg(1, std::ios::cur );
+
+  n = 400 - 27;
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    print( s , buffer );
+  }
+
+  std::cout << "n=" << std::dec << n << std::endl;
+  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
+  is.read( (char*)&n, sizeof(n) );
+  std::cout << "MAGIC: " << std::dec << n << std::endl;
+ 
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    print( s , buffer );
+  }
+
+
+  std::cout << "n=" << std::dec << n << std::endl;
+  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
+   n = 10;
+  is.read( (char*)&n, sizeof(n) );
+  std::cout << "MAGIC: " << std::dec << n << std::endl;
+ 
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    print( s , buffer );
+  }
+
+  std::cout << "n=" << std::dec << n << std::endl;
+  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
+  is.read( (char*)&n, sizeof(n) );
+  std::cout << "MAGIC: " << std::dec << n << std::endl;
+ 
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    print( s , buffer );
+  }
+
+  std::cout << "n=" << std::dec << n << std::endl;
+  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
+  is.read( (char*)&n, sizeof(n) );
+  std::cout << "MAGIC: " << std::dec << n << std::endl;
+  n = 260;
+ 
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    //print( s , buffer );
+  }
+
+  std::cout << "back" << std::endl;
+  is.seekg( -4, std::ios::cur );
+  is.seekg( -32, std::ios::cur );
+  n = 1;
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    print( s , buffer );
+  }
+
+
+  //is.read( (char*)&n, sizeof(n) );
+  //std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
+  //std::cout << "MAGIC: " << std::dec << n << std::endl;
+ 
+  n = 7;
+  for( int i = 0; i < n + 0; ++i )
+  {
+    is.read( (char*)&s, sizeof(s) );
+    is.read( (char*)buffer, s.len );
+    print( s , buffer );
+    assert( !is.eof() );
+  }
+
+
+//  std::cout << "n=" << std::dec << n << std::endl;
+//  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
+//  is.read( (char*)&n, sizeof(n) );
+//  std::cout << "MAGIC: " << std::dec << n << std::endl;
+// 
+//  for( int i = 0; i < n + 0; ++i )
+//  {
+//    is.read( (char*)&s, sizeof(s) );
+//    is.read( (char*)buffer, s.len );
+//    print( s , buffer );
+//  }
+
+
+ 
   std::cout << std::hex << is.tellg() << std::endl;
+  is.peek();
+  assert( is.eof() );
 
   return 0;
 }
