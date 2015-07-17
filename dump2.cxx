@@ -411,29 +411,30 @@ int main(int argc, char * argv[])
 
   std::cout << "back" << std::endl;
   is.seekg( -4, std::ios::cur );
+  is.seekg( -4, std::ios::cur );
   is.seekg( -32, std::ios::cur );
+  is.seekg( -32, std::ios::cur );
+  is.seekg( -44, std::ios::cur );
   n = 1;
+  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
   for( int i = 0; i < n + 0; ++i )
   {
     is.read( (char*)&s, sizeof(s) );
     is.read( (char*)buffer, s.len );
     print( s , buffer );
   }
-
-
-  //is.read( (char*)&n, sizeof(n) );
-  //std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
-  //std::cout << "MAGIC: " << std::dec << n << std::endl;
- 
-  n = 7;
+  is.read( (char*)&n, sizeof(n) );
+  std::cout << "MAGIC: " << std::dec << n << std::endl;
+  is.read( (char*)&n, sizeof(n) );
+  std::cout << "MAGIC: " << std::dec << n << std::endl;
+  
+  n = 9;
   for( int i = 0; i < n + 0; ++i )
   {
     is.read( (char*)&s, sizeof(s) );
     is.read( (char*)buffer, s.len );
     print( s , buffer );
-    assert( !is.eof() );
   }
-
 
 //  std::cout << "n=" << std::dec << n << std::endl;
 //  std::cout << "tell:" << std::hex << is.tellg() << std::dec << std::endl;
