@@ -4,60 +4,71 @@
 #include <cassert>
 #include <cstring>
 #include <vector>
+#include <sstream>
 
 #include <stdint.h>
+/*
+ * 560b / 55f1 -> PatientID
+ * 560c / 55f2 -> PatientName
+ * 560d / 55f3 -> PatientName
+ */
 
 enum {
-  TYPE_STRING   = 0x2c00,
-  TYPE_DATETIME = 0x0e00,
-  TYPE_UNK1     = 0xd000,
-  TYPE_UNK2     = 0x0800,
-  TYPE_UNK3     = 0x0400,
-  TYPE_UNK4     = 0x0200,
-  TYPE_UNK5     = 0x2400,
-  TYPE_UNK6     = 0x0300, // multi-byte string ?
-  TYPE_UNK7     = 0x0100,
-  TYPE_UNK8     = 0x2900,
-  TYPE_UNK9     = 0x2800,
-  TYPE_UNK10    = 0x3200,
-  TYPE_UNK11    = 0x2300,
-  TYPE_UNK12    = 0x2900,
-  TYPE_UNK13    = 0x2200,
-  TYPE_UNK14    = 0x3100,
-  TYPE_UNK15    = 0x2a00,
-  TYPE_UNK16    = 0x2500,
-  TYPE_UNK17    = 0x0600,
-  TYPE_UNK18    = 0x5e00, // weird string ?
-  TYPE_UNK19    = 0x5f00, // weird string ?
+  TYPE_STRING   = 0x2c00, // ASCII STRING
+  TYPE_STRING2  = 0xc100, // another string ?
+  TYPE_STRING3  = 0xc300, // another string ?
+  TYPE_DATETIME = 0x0e00, // Date/Time stored as ASCII
+  TYPE_UID      = 0xd000, // UID: pair 32bits integer
+  TYPE_DBL1     = 0x2900, // double (64bits)
+  TYPE_DBL2     = 0xb900, // double (64bits) or not ???
+  TYPE_FL1      = 0x0800, // float 32bits
+  TYPE_FL2      = 0x2800, // another float32bits
+  TYPE_FL3      = 0x0600, // another float32bits
+  TYPE_FL4      = 0x0500, // a807 looks like ImageMatrix
+  TYPE_FL5      = 0x0100, // another float32bits
+  TYPE_FL6      = 0xb800, // another float32bits
+  TYPE_WST      = 0x0300, // multi-byte string ?
+  TYPE_STRU1    = 0x5e00, // weird struct ?
+  TYPE_STRU2    = 0x5f00, // weird struct ?
+  TYPE_STRU3    = 0x2000, // weird struct ?
+  TYPE_INT1     = 0x2400, // looks like an int32 (because of -1 used...)
+  TYPE_BOOL     = 0x2a00, // bool stored on 32bits
+  TYPE_UINT1    = 0x3200, // uint32_t
+  TYPE_UINT2    = 0x0400, // another uint32_t ?
+  TYPE_UINT3    = 0x3100, // uint64_t
+  TYPE_UINT4    = 0x0200, // another uint32_t ?
+  TYPE_UINT5    = 0x0b00, // another uint32_t ?
+  TYPE_UINT6    = 0x2500, // another uint32_t ? But only O/1 another bool type ?
+  TYPE_UINT7    = 0xbb00, // another uint32_t ?
+  TYPE_UINT8    = 0x7000, // another uint32_t ?
+  TYPE_UINT9    = 0x2100, // another uint32_t ?
+  TYPE_UINT10   = 0xba00, // another uint32_t ?
+  TYPE_UINT11   = 0xc200, // uint16_t
+  TYPE_UINT12   = 0x2200, // another uint16_t ?
+  TYPE_UINT13   = 0x7200, // another uint16_t ?
 };
 
 struct __attribute__ ((__packed__)) S
 {
-  uint16_t key;
-  uint16_t key2; // zero ?
+#if 1
+  uint16_t key1;
+  uint16_t key2; // [0,1,2]
+#else
+  uint32_t key;
+#endif
   uint16_t type;
-  uint16_t val16;
+  uint16_t flag;
   uint16_t len;
   unsigned char separator[22];
 };
 
 static void print2( const unsigned char * buffer )
 {
-#if 0
-  std::cout << std::dec;
-  std::cout << " {";
-  for( int i = 0; i < 22; ++i ) // 23
-  {
-    if( i ) std::cout << ",";
-    std::cout << (int)buffer[i];
-  }
-  std::cout << "}";
-#else
-  const unsigned char magic12[] = {0,0,0,0,0,0,0,0,0,0,0xc,0,0,0,0,0,0,0,0,0,0,0};
-  int b = memcmp(buffer, magic12, sizeof(magic12) );
+  // digital trash ? or actual signature ?
+  static const unsigned char magic[] = {0,0,0,0,0,0,0,0,0,0,0xc,0,0,0,0,0,0,0,0,0,0,0};
+  int b = memcmp(buffer, magic, sizeof(magic) );
   assert( b == 0 );
-  std::cout << "<sep12>";
-#endif
+  std::cout << "<magic12>";
 }
 
 template <typename T>
@@ -66,7 +77,8 @@ static void print_type( const unsigned char * buffer, unsigned int len, bool rev
   const T * start = (const T*)buffer;
   T val1;
   const unsigned int n = len / sizeof(val1);
-  assert( len % sizeof(val1) == 0 );
+  if( len % sizeof(val1) == 0 )
+  {
   std::cout << len << " [";
   for( unsigned int i = 0; i < n; ++i )
   {
@@ -87,6 +99,11 @@ static void print_type( const unsigned char * buffer, unsigned int len, bool rev
     start += 1 /*sizeof(val1)*/;
   }
   std::cout << "]";
+  }
+  else
+  {
+  std::cout << "[INVALID]";
+  }
 }
 template <>
 void print_type<uint8_t>( const unsigned char * buffer, unsigned int len, bool rev )
@@ -102,7 +119,23 @@ void print_type<uint8_t>( const unsigned char * buffer, unsigned int len, bool r
     std::cout << std::hex << (int)val1;
     start += sizeof(val1);
   }
-  std::cout << "]";
+  std::cout << "]" << std::dec;
+}
+template <>
+void print_type<int8_t>( const unsigned char * buffer, unsigned int len, bool rev )
+{
+  const int8_t * start = (const int8_t*)buffer;
+  int8_t val1;
+  const int n = len / sizeof(val1);
+  std::cout << len << " [";
+  for( int i = 0; i < n; ++i )
+  {
+    memcpy(&val1, start, sizeof(val1) );
+    if( i ) std::cout << ",";
+    std::cout << std::hex << (int)val1;
+    start += sizeof(val1);
+  }
+  std::cout << "]" << std::dec;
 }
 
 void print_multistring( const unsigned char * buffer, unsigned int len )
@@ -131,40 +164,68 @@ void print_multistring( const unsigned char * buffer, unsigned int len )
   }
   std::cout << "]";
 }
+void print_multistring2( const unsigned char * buffer, unsigned int len )
+{
+  static int i = 0;
+  assert( len == 48 || len == 60 || len == 68 );
+  const unsigned char sig4[] = "USAN";
+  int b = memcmp( buffer, sig4, sizeof(sig4) );
+  assert(b == 0 );
+  const unsigned char * p = buffer + 4;
+  std::ostringstream ss;
+  ss << "ms2_";
+  ss << i++;
+  ss << ".raw";
+  std::ofstream os( ss.str().c_str(), std::ios::binary );
+  os.write( (char*)buffer, len );
+  os.close();
+  std::cout << "[USAN??]";
+}
 
 static void print( const S & s, const unsigned char buffer[] )
 {
   static int didx = 0;
-  //if( s.twelve != 12 )
-  //{
-  //  std::cout << "ERROR:";
-  //}
-  std::cout << didx++ << ":(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key << "," << (unsigned int)s.key2 << ") ";
+#if 1
+  std::cout << didx++ << ":(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key1 << "," << (unsigned int)s.key2 << ") ";
+#else
+  std::cout << didx++ << ":(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key << ") ";
+#endif
   std::cout << std::dec;
   switch( s.type )
   {
     case TYPE_STRING:
-      //assert( s.key2 == 0 );
-      //assert( s.val16 == 0xff00 );
-      assert( s.separator[0] == 0 );
+      assert( s.flag == 0xff00 );
       std::cout << " ST ";
-      std::cout << (int)s.len << " [" << buffer << "]";
+      std::cout << s.len << " [" << buffer << "]";
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+    case TYPE_STRING2:
+      assert( s.flag == 11 );
+      std::cout << " ST2 ";
+      //std::cout << s.len << " [" << std::string((char*)buffer,s.len) << "]";
+      std::cout << s.len << " [" << buffer << "]";
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+     case TYPE_STRING3:
+      assert( s.flag == 11 );
+      std::cout << " ST3 ";
+      //std::cout << s.len << " [" << std::string((char*)buffer,s.len) << "]";
+      std::cout << s.len << " [" << buffer << "]";
       print2( s.separator );
       std::cout << std::endl;
       break;
     case TYPE_DATETIME:
-      //assert( s.key2 == 0 );
-      //assert( s.val16 == 0x0 );
+      assert( s.flag == 0x0 );
       std::cout << " DT ";
-      std::cout << (int)s.len << " [" << buffer << "]";
+      std::cout << s.len << " [" << buffer << "]";
       print2( s.separator );
       std::cout << std::endl;
       break;
-    case TYPE_UNK1: //(Device Serial Number / Study ID)
-      assert( s.key2 == 0 );
-      //assert( s.val16 == 0xd );
+    case TYPE_UID: //(Device Serial Number / Study ID)
+      assert( s.flag == 0x7 );
       std::cout << " UID ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
       assert( s.len == 8 );
       {
         uint32_t val1;
@@ -172,123 +233,228 @@ static void print( const S & s, const unsigned char buffer[] )
         memcpy(&val1, buffer, sizeof(val1) );
         memcpy(&val2, buffer + 4, sizeof(val2) );
         // TOSHIBA display UID `Device Serial Number`.`Study ID`
-        std::cout << (int)s.len << " [" << val1 << "." << val2 << "]";
-        print2( s.separator ); std::cout << std::endl;
+        std::cout << s.len << " [" << val1 << "." << val2 << "]";
+        print2( s.separator );
+        std::cout << std::endl;
       }
       break;
-    case TYPE_UNK2:
-      std::cout << " FL "; // Patient Weight ?
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 4 || s.len == 32 || s.len == 0 );
+    case TYPE_DBL1:
+      assert( s.flag == 0xff00 );
+      std::cout << " DBL1 "; // 13ec/afc9: Imaging Frequency
+      assert( s.len % 8 == 0 );
+      print_type<double>( buffer, s.len, false );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+     case TYPE_DBL2:
+      assert( s.flag == 0xb );
+      std::cout << " DBL2 "; // always zero always zero 
+      assert( s.len == 24 );
+      print_type<double>( buffer, s.len, false );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+     case TYPE_FL1:
+      assert( s.flag == 0xff00 );
+      std::cout << " FL1 "; // 55f9 Patient Weight ?
+      assert( s.len % 4 == 0 );
       print_type<float>( buffer, s.len, false );
-      print2( s.separator ); std::cout << std::endl;
+      print2( s.separator );
+      std::cout << std::endl;
       break;
-    case TYPE_UNK3:
-      std::cout << " U3 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 4 || s.len == 16 || s.len == 8 || s.len == 32 || s.len == 0 || s.len == 24 );
+    case TYPE_FL2:
+      assert( s.flag == 0xff00 );
+      std::cout << " FL2 ";
+      assert( s.len % 4 == 0 );
+      print_type<float>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+    case TYPE_FL3:
+      assert( s.flag == 0x0 );
+      std::cout << " FL3 ";
+      assert( s.len % 4 == 0 );
+      print_type<float>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+     case TYPE_FL4:
+      assert( s.flag == 0x0 );
+      std::cout << " FL4 ";
+      assert( s.len % 4 == 0 );
+      print_type<float>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+     case TYPE_FL5:
+      assert( s.flag == 0x0 );
+      std::cout << " FL5 ";
+      assert( s.len % 4 == 0 );
+      print_type<float>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+      case TYPE_FL6:
+      assert( s.flag == 0xb );
+      std::cout << " FL6 ";
+      assert( s.len % 4 == 0 ); // 36
+      print_type<float>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+    case TYPE_INT1:
+      std::cout << " INT1 ";
+      assert( s.flag == 0xff00 );
+      print_type<int32_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+    case TYPE_UINT1:
+      std::cout << " UINT1 ";
+      assert( s.flag == 0xff00 );
       print_type<uint32_t>( buffer, s.len );
-      print2( s.separator ); std::cout << std::endl;
+      print2( s.separator );
+      std::cout << std::endl;
       break;
-    case TYPE_UNK4:
-      std::cout << " U4 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      //assert( s.len == 36 || s.len == 40 || s.len == 4 || s.len == 16 || s.len == 24 || s.len == 8 || s.len == 92 );
-      print_type<uint32_t>( buffer, s.len, false );
-      print2( s.separator ); std::cout << std::endl;
-      break;
-    case TYPE_UNK5:
-      std::cout << " U5 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      //assert( s.len == 4 || s.len == 40 || s.len == 32 || s.len == 12 || s.len == 24 || s.len == 16 || s.len == 8 );
+    case TYPE_UINT2:
+      std::cout << " UINT2 ";
+      assert( s.flag == 0xff00 || s.flag == 0x0 );
       print_type<uint32_t>( buffer, s.len );
-      print2( s.separator ); std::cout << std::endl;
+      print2( s.separator );
+      std::cout << std::endl;
       break;
-    case TYPE_UNK6:
+    case TYPE_UINT4:
+      std::cout << " UINT4 ";
+      assert( s.flag == 0xfff0 || s.flag == 0x0 );
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+     case TYPE_UINT3:
+      std::cout << " UINT3 ";
+      assert( s.flag == 0xff00 );
+      print_type<uint64_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+     case TYPE_UINT5:
+      std::cout << " UINT5 ";
+      assert( s.flag == 0x0 );
+      print_type<uint64_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+     case TYPE_UINT6:
+      std::cout << " UINT6 ";
+      assert( s.flag == 0xff00 );
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+     case TYPE_UINT7:
+      std::cout << " UINT7 ";
+      assert( s.flag == 0xb );
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+      case TYPE_UINT8:
+      std::cout << " UINT8 ";
+      assert( s.flag == 0x17 );
+      assert( s.len == 24 );
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+       case TYPE_UINT9:
+      std::cout << " UINT9 ";
+      assert( s.flag == 0xff00 );
+      assert( s.len == 16 );
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+        case TYPE_UINT10:
+      std::cout << " UINT10 ";
+      assert( s.flag == 0xb );
+      assert( s.len == 8 );
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+         case TYPE_UINT11:
+      std::cout << " UINT11 ";
+      assert( s.flag == 0xb );
+      assert( s.len % 2 == 0 );
+      print_type<uint16_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+         case TYPE_UINT12:
+      std::cout << " UINT12 ";
+      assert( s.flag == 0xff00 );
+      assert( s.len % 2 == 0 );
+      print_type<uint16_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+         case TYPE_UINT13:
+      std::cout << " UINT13 ";
+      assert( s.flag == 0x17 );
+      assert( s.len % 2 == 0 );
+      print_type<uint16_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+    case TYPE_BOOL:
+      std::cout << " BOOL ";
+      assert( s.flag == 0xff00 );
+      print_type<uint32_t>( buffer, s.len );
+      print2( s.separator );
+      std::cout << std::endl;
+      break;
+
+    case TYPE_WST:
       std::cout << " WST ";
-      //assert( s.val16 == 0 || s.val16 == 256 || s.val16 ==  );
-      //std::cout << (int)s.len << " [ ?? ]" << std::endl;
+      assert( s.flag == 0 );
       print_multistring( buffer, s.len );
       print2( s.separator ); std::cout << std::endl;
       break;
-    case TYPE_UNK7:
-      std::cout << " U7 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 0 || s.len == 4 );
-      print_type<int32_t>( buffer, s.len );
+    case TYPE_STRU1:
+      std::cout << " STRU1 ";
+      assert( s.flag == 27 ); // ??
+      print_multistring2( buffer, s.len );
       print2( s.separator ); std::cout << std::endl;
       break;
-   case TYPE_UNK9:
-      std::cout << " FL ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 4 || s.len == 32 || s.len == 12 || s.len == 0 || s.len == 48 || s.len == 8 );
-      print_type<float>( buffer, s.len );
+    case TYPE_STRU2:
+      std::cout << " STRU2 ";
+      assert( s.flag == 27 );
+      print_multistring2( buffer, s.len );
       print2( s.separator ); std::cout << std::endl;
       break;
-    case TYPE_UNK10:
-      std::cout << " U8 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 12 || s.len == 4 || s.len == 8 );
-      print_type<uint32_t>( buffer, s.len );
+    case TYPE_STRU3:
+      std::cout << " STRU3 ";
+      assert( s.flag == 65280 );
+      print_multistring2( buffer, s.len );
       print2( s.separator ); std::cout << std::endl;
       break;
-     case TYPE_UNK11:
-      std::cout << " U11 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      //assert( s.len == 16 || s.len == 132 );
-      print_type<uint32_t>( buffer, s.len );
-      print2( s.separator ); std::cout << std::endl;
-      break;
-      case TYPE_UNK12:
-      std::cout << " U12 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      //assert( s.len == 8 );
-      print_type<int16_t>( buffer, s.len );
-      print2( s.separator ); std::cout << std::endl;
-      break;
-       case TYPE_UNK13:
-      std::cout << " U13 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      //assert( s.len == 2 || s.len == 0 );
-      print_type<uint16_t>( buffer, s.len );
-      print2( s.separator ); std::cout << std::endl;
-      break;
-        case TYPE_UNK14:
-      std::cout << " U14 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 8 || s.len == 16 || s.len == 0 );
-      print_type<uint16_t>( buffer, s.len );
-      print2( s.separator ); std::cout << std::endl;
-      break;
-         case TYPE_UNK15:
-      std::cout << " U15 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      //assert( s.len == 4 );
-      print_type<uint32_t>( buffer, s.len );
-      print2( s.separator ); std::cout << std::endl;
-      break;
-         case TYPE_UNK16:
-      std::cout << " U16 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 4 || s.len == 512 );
-      print_type<uint32_t>( buffer, s.len );
-      print2( s.separator ); std::cout << std::endl;
-      break;
-          case TYPE_UNK17:
-      std::cout << " U17 ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      print_type<uint32_t>( buffer, s.len );
-      print2( s.separator ); std::cout << std::endl;
-      break;
- 
     default:
       std::cout << " ?? (" << std::hex << s.type << ") ";
-      std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
+      std::cout << "(" << std::hex << s.flag << std::dec << ") ";
       std::cout << std::dec << (int)s.len << " [" << std::string((char*)buffer,s.len) << "]";
-      print2( s.separator );
+      std::cout << ",  DL  "; print_type<double>( buffer, s.len );
+      std::cout << ",  FL  "; print_type<float>( buffer, s.len );
+      std::cout << ",  U64  "; print_type<uint64_t>( buffer, s.len );
+      std::cout << ",  U32  "; print_type<uint32_t>( buffer, s.len );
+      std::cout << ",  U16  "; print_type<uint16_t>( buffer, s.len );
+      std::cout << ",  U8  "; print_type<uint8_t>( buffer, s.len );
+      std::cout << ",  I64  "; print_type<int64_t>( buffer, s.len );
+      std::cout << ",  I32  "; print_type<int32_t>( buffer, s.len );
+      std::cout << ",  I16  "; print_type<int16_t>( buffer, s.len );
+      std::cout << ",  I8  "; print_type<int8_t>( buffer, s.len );
+       //print2( s.separator );
       std::cout << std::endl;
   }
-
 }
 
 
@@ -319,7 +485,6 @@ int main(int argc, char * argv[])
         std::ofstream os( "debug.raw", std::ios::binary );
         os.write( (char*)buffer, s.len );
         os.close();
-
       }
     }
   }
