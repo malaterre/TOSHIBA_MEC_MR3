@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <cassert>
 #include <cstring>
+#include <vector>
 
 #include <stdint.h>
 
@@ -28,14 +29,19 @@ enum {
   TYPE_UNK17    = 0x0600,
 };
 
-struct S
+struct __attribute__ ((__packed__)) S
 {
   uint16_t key;
   uint16_t key2; // zero ?
   uint16_t type;
   uint16_t val16;
+#if 1
+  uint16_t len;
+  unsigned char dummy2[11 - 1];
+#else
   unsigned char len;
   unsigned char dummy2[11];
+#endif
   unsigned char twelve;
   unsigned char dummy3[11];
 };
@@ -44,7 +50,7 @@ static void print2( const unsigned char * buffer )
 {
   std::cout << std::dec;
   std::cout << " {";
-  for( int i = 0; i < 23; ++i )
+  for( int i = 0; i < 22; ++i ) // 23
   {
     if( i ) std::cout << ",";
     std::cout << (int)buffer[i];
@@ -137,7 +143,7 @@ static void print( const S & s, const unsigned char buffer[] )
   {
     case TYPE_STRING:
       //assert( s.key2 == 0 );
-      assert( s.val16 == 0xff00 );
+      //assert( s.val16 == 0xff00 );
       assert( s.dummy2[0] == 0 );
       std::cout << " ST ";
       std::cout << (int)s.len << " [" << buffer << "]";
@@ -192,7 +198,7 @@ static void print( const S & s, const unsigned char buffer[] )
     case TYPE_UNK5:
       std::cout << " U5 ";
       std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 4 || s.len == 40 || s.len == 32 || s.len == 12 || s.len == 24 || s.len == 16 || s.len == 8 );
+      //assert( s.len == 4 || s.len == 40 || s.len == 32 || s.len == 12 || s.len == 24 || s.len == 16 || s.len == 8 );
       print_type<uint32_t>( buffer, s.len );
       print2( s.dummy2 ); std::cout << std::endl;
       break;
@@ -262,7 +268,7 @@ static void print( const S & s, const unsigned char buffer[] )
          case TYPE_UNK16:
       std::cout << " U16 ";
       std::cout << "(" << std::hex << s.val16 << std::dec << ") ";
-      assert( s.len == 4 || s.len == 0 );
+      assert( s.len == 4 || s.len == 512 );
       print_type<uint32_t>( buffer, s.len );
       print2( s.dummy2 ); std::cout << std::endl;
       break;
@@ -289,14 +295,14 @@ int main(int argc, char * argv[])
   const char * in = argv[1];
   std::ifstream is( in, std::ios::binary );
 
-  unsigned char buffer[512];
+  //unsigned char buffer[512];
+  unsigned char buffer[5000];
   S s;
   //std::cout << sizeof(s) << std::endl;
   assert( sizeof(s) == 32 );
   uint32_t n;
   is.read( (char*)&n, sizeof(n) );
   std::cout << n << std::endl;
-  //for( int i = 0; i < n + 850; ++i )
   for( int i = 0; i < n + 0; ++i )
   {
 
@@ -306,15 +312,40 @@ int main(int argc, char * argv[])
   }
 
   is.read( (char*)&n, sizeof(n) );
-  std::cout << std::dec << n << std::endl;
-  n = 70;
+  std::cout << "MAGIC:" << std::dec << n << std::endl;
+  //n = 70;
   for( int i = 0; i < n + 0; ++i )
   {
 
     is.read( (char*)&s, sizeof(s) );
-    is.read( (char*)buffer, s.len );
-    print( s , buffer );
+    if( s.dummy2[0] == 0 )
+    {
+      is.read( (char*)buffer, s.len );
+      print( s , buffer );
+    }
+    else
+    {
+      assert(0);
+      is.read( (char*)buffer, s.len );
+      print( s , buffer );
+      std::cout << "SPECIAL: skip_len=" << std::hex  << (int)s.dummy2[0] << " ; " << is.tellg() << std::dec << std::endl;
+      std::vector<char> bytes;
+      if( s.dummy2[0] == 2 )
+      {
+        bytes.resize( 512 );
+        is.read( (char*)&bytes[0], bytes.size() );
+      }
+      else if( s.dummy2[0] == 18 )
+      {
+      }
+      else
+      {
+        assert(0);
+      }
+      // check all zeroes ?
+    }
   }
+  return 0;
 
   //is.read( (char*)&n, sizeof(n) );
   std::cout << "n=" << std::dec << n << std::endl;
