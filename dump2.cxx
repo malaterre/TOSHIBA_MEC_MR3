@@ -51,8 +51,8 @@ enum {
 struct __attribute__ ((__packed__)) S
 {
 #if 1
-  uint16_t key1;
-  uint16_t key2; // [0,1,2]
+  uint16_t key1; // somewhat increasing
+  uint16_t key2; // [0,1,2,3]
 #else
   uint32_t key;
 #endif
@@ -98,7 +98,7 @@ static void print_type( const unsigned char * buffer, unsigned int len, bool rev
     std::cout << val1;
     start += 1 /*sizeof(val1)*/;
   }
-  std::cout << "]";
+  std::cout << "]" << " (" << n << ")";
   }
   else
   {
@@ -184,13 +184,14 @@ void print_multistring2( const unsigned char * buffer, unsigned int len )
 
 static void print( const S & s, const unsigned char buffer[] )
 {
-  static int didx = 0;
 #if 1
-  std::cout << didx++ << ":(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key1 << "," << (unsigned int)s.key2 << ") ";
+  std::cout << "(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key1 << "," << (unsigned int)s.key2 << ") ";
 #else
-  std::cout << didx++ << ":(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key << ") ";
+  std::cout << "(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key << ") ";
 #endif
+  assert( s.key2 == 0 || s.key2 == 1 || s.key2 == 2 || s.key2 == 3 );
   std::cout << std::dec;
+  std::cout << "(" << std::hex << std::setw(4) << std::setfill('0') << s.flag << std::dec << ") ";
   switch( s.type )
   {
     case TYPE_STRING:
@@ -340,7 +341,7 @@ static void print( const S & s, const unsigned char buffer[] )
     case TYPE_UINT5:
       std::cout << " UINT5 ";
       assert( s.flag == 0x0 );
-      print_type<uint64_t>( buffer, s.len );
+      print_type<uint32_t>( buffer, s.len );
       print2( s.separator );
       std::cout << std::endl;
       break;
