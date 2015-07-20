@@ -208,7 +208,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-     case TYPE_STRING3:
+    case TYPE_STRING3:
       assert( s.flag == 11 );
       std::cout << " ST3 ";
       //std::cout << s.len << " [" << std::string((char*)buffer,s.len) << "]";
@@ -246,7 +246,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-     case TYPE_DBL2:
+    case TYPE_DBL2:
       assert( s.flag == 0xb );
       std::cout << " DBL2 "; // always zero always zero 
       assert( s.len == 24 );
@@ -254,7 +254,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-     case TYPE_FL1:
+    case TYPE_FL1:
       assert( s.flag == 0xff00 );
       std::cout << " FL1 "; // 55f9 Patient Weight ?
       assert( s.len % 4 == 0 );
@@ -278,7 +278,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-     case TYPE_FL4:
+    case TYPE_FL4:
       assert( s.flag == 0x0 );
       std::cout << " FL4 ";
       assert( s.len % 4 == 0 );
@@ -286,7 +286,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-     case TYPE_FL5:
+    case TYPE_FL5:
       assert( s.flag == 0x0 );
       std::cout << " FL5 ";
       assert( s.len % 4 == 0 );
@@ -294,7 +294,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-      case TYPE_FL6:
+    case TYPE_FL6:
       assert( s.flag == 0xb );
       std::cout << " FL6 ";
       assert( s.len % 4 == 0 ); // 36
@@ -330,35 +330,35 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-     case TYPE_UINT3:
+    case TYPE_UINT3:
       std::cout << " UINT3 ";
       assert( s.flag == 0xff00 );
       print_type<uint64_t>( buffer, s.len );
       print2( s.separator );
       std::cout << std::endl;
       break;
-     case TYPE_UINT5:
+    case TYPE_UINT5:
       std::cout << " UINT5 ";
       assert( s.flag == 0x0 );
       print_type<uint64_t>( buffer, s.len );
       print2( s.separator );
       std::cout << std::endl;
       break;
-     case TYPE_UINT6:
+    case TYPE_UINT6:
       std::cout << " UINT6 ";
       assert( s.flag == 0xff00 );
       print_type<uint32_t>( buffer, s.len );
       print2( s.separator );
       std::cout << std::endl;
       break;
-     case TYPE_UINT7:
+    case TYPE_UINT7:
       std::cout << " UINT7 ";
       assert( s.flag == 0xb );
       print_type<uint32_t>( buffer, s.len );
       print2( s.separator );
       std::cout << std::endl;
       break;
-      case TYPE_UINT8:
+    case TYPE_UINT8:
       std::cout << " UINT8 ";
       assert( s.flag == 0x17 );
       assert( s.len == 24 );
@@ -366,7 +366,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-       case TYPE_UINT9:
+    case TYPE_UINT9:
       std::cout << " UINT9 ";
       assert( s.flag == 0xff00 );
       assert( s.len == 16 );
@@ -374,7 +374,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-        case TYPE_UINT10:
+    case TYPE_UINT10:
       std::cout << " UINT10 ";
       assert( s.flag == 0xb );
       assert( s.len == 8 );
@@ -382,7 +382,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-         case TYPE_UINT11:
+    case TYPE_UINT11:
       std::cout << " UINT11 ";
       assert( s.flag == 0xb );
       assert( s.len % 2 == 0 );
@@ -390,7 +390,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-         case TYPE_UINT12:
+    case TYPE_UINT12:
       std::cout << " UINT12 ";
       assert( s.flag == 0xff00 );
       assert( s.len % 2 == 0 );
@@ -398,7 +398,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator );
       std::cout << std::endl;
       break;
-         case TYPE_UINT13:
+    case TYPE_UINT13:
       std::cout << " UINT13 ";
       assert( s.flag == 0x17 );
       assert( s.len % 2 == 0 );
@@ -452,7 +452,7 @@ static void print( const S & s, const unsigned char buffer[] )
       std::cout << ",  I32  "; print_type<int32_t>( buffer, s.len );
       std::cout << ",  I16  "; print_type<int16_t>( buffer, s.len );
       std::cout << ",  I8  "; print_type<int8_t>( buffer, s.len );
-       //print2( s.separator );
+      //print2( s.separator );
       std::cout << std::endl;
   }
 }
@@ -472,19 +472,41 @@ int main(int argc, char * argv[])
     uint32_t n;
     is.read( (char*)&n, sizeof(n) );
     std::cout << "#Items:" << std::dec << n << std::endl;
+    std::cout << std::hex << is.tellg() << std::dec << std::endl;
+
+    if( n == 1 )
+    {
+      uint32_t u32;
+      is.read( (char*)&u32, sizeof(u32) );
+      std::cout << "debug:" << u32 << "\n";
+      n = u32;
+    }
     for( int i = 0; i < n + 0; ++i )
     {
       is.read( (char*)&s, sizeof(s) );
       assert( s.len < sizeof(buffer) );
-      is.read( (char*)buffer, s.len );
-      if( s.len < 512 )
+      if( s.len <= 512 )
+      {
+        is.read( (char*)buffer, s.len );
         print( s , buffer );
+      }
       else
       {
-        std::cout << "skip: " << s.len << std::endl;
+        std::streampos pos = is.tellg();
+        is.read( (char*)buffer, s.len );
+        std::streamsize count = is.gcount();
+        assert( is.good() );
+        // std::cout << "skip: " << s.len << std::endl;
         std::ofstream os( "debug.raw", std::ios::binary );
         os.write( (char*)buffer, s.len );
+        std::cout << "skip:(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key1 << "," << (unsigned int)s.key2 << ") ";
+        std::cout << " ?? (" << std::hex << s.type << ") ";
+        assert( s.flag == 0x0 || s.flag == 0xff00 );
+        std::cout << s.len << " [" << "]";
+        print2( s.separator );
+        //os.write( (char*)s.separator, 22 );
         os.close();
+        std::cout << std::endl;
       }
     }
   }
