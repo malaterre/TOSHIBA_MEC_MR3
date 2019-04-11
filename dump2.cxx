@@ -440,6 +440,7 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator ); std::cout << std::endl;
       break;
     default:
+      assert(0);
       std::cout << " ?? (" << std::hex << s.type << ") ";
       std::cout << "(" << std::hex << s.flag << std::dec << ") ";
       std::cout << std::dec << (int)s.len << " [" << std::string((char*)buffer,s.len) << "]";
