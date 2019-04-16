@@ -9,17 +9,22 @@ typedef struct S {
   char buf[32];
 } S;
 
-typedef struct I {
+typedef struct /* __attribute__((__packed__))*/ I {
 #if 0
   uint32_t k1;
 #else
   uint16_t k11;
   uint16_t k12;
 #endif
+#if 0
   uint32_t k2;
+#else
+  uint16_t k21;
+  uint16_t k22;
+#endif
   uint16_t len;
   uint16_t k4;
-  unsigned char separator[22-4];
+  unsigned char separator[20];
 } I;
 
 static const unsigned char magic2[] = {0,0,0,0,0,0,0,0,0xc,0,0,0,0,0,0,0,0,0,0,0};
@@ -43,6 +48,8 @@ int main(int argc, char * argv[])
   assert( sizeof(s) == 32 );
   I si;
   assert( sizeof(si) == 32 );
+  assert( sizeof(si.separator) == 20 );
+  assert( sizeof(magic2) == 20 );
   char buf[512];
 
 
@@ -86,8 +93,9 @@ int main(int argc, char * argv[])
 
       }
       //printf("  #k1: 0x%08lx #k2: 0x%08x #k3: 0x%04x k4: 0x%04x", si.k1, si.k2, si.len, si.k4 );
-      printf("  #k11: 0x%04x #k12: 0x%04x #k2: 0x%08x #k3: %04d", si.k11, si.k12, si.k2, si.len );
+      printf("  #k11: 0x%04x #k12: 0x%04x #k21: 0x%02x #k22: 0x%04x #k3: %04d", si.k11, si.k12, si.k21 >> 8, si.k22, si.len );
       assert( si.k12 <= 0x3 );
+      assert( ( si.k21 & 0x00ff ) == 0x0 );
       assert( si.len <= 8192 );
       //printf("  #k1: 0x%08lx #k2: 0x%08x", si.k1, si.k2 );
 //      printf("  #Pos: %7ld 0x%08lx #Len:%08u 0x%08x\n", pos, pos, si.len, si.len );
