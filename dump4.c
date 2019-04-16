@@ -10,7 +10,12 @@ typedef struct S {
 } S;
 
 typedef struct I {
+#if 0
   uint32_t k1;
+#else
+  uint16_t k11;
+  uint16_t k12;
+#endif
   uint32_t k2;
   uint16_t len;
   uint16_t k4;
@@ -45,7 +50,6 @@ int main(int argc, char * argv[])
     #k1: 0x000017e3 #k2: 0xff002400
     #k1: 0x000017e3 #k2: 0xff002a00
     */
-
 
   bool lastgroup = false;
   //for( r = 0; r < 6; ++r )
@@ -82,7 +86,8 @@ int main(int argc, char * argv[])
 
       }
       //printf("  #k1: 0x%08lx #k2: 0x%08x #k3: 0x%04x k4: 0x%04x", si.k1, si.k2, si.len, si.k4 );
-      printf("  #k1: 0x%08lx #k2: 0x%08x #k3: %04d", si.k1, si.k2, si.len );
+      printf("  #k11: 0x%04x #k12: 0x%04x #k2: 0x%08x #k3: %04d", si.k11, si.k12, si.k2, si.len );
+      assert( si.k12 <= 0x3 );
       assert( si.len <= 8192 );
       //printf("  #k1: 0x%08lx #k2: 0x%08x", si.k1, si.k2 );
 //      printf("  #Pos: %7ld 0x%08lx #Len:%08u 0x%08x\n", pos, pos, si.len, si.len );
@@ -91,7 +96,8 @@ int main(int argc, char * argv[])
       assert( si.len <= sizeof buffer );
       nread = fread( buffer, 1, si.len, in );
       assert( nread == (size_t)si.len );
-      //if( si.k1 == 0xff002c00 ) printf("  buffer: [%.*s]", nread,  buffer );
+//      if( si.k2 == 0xff002c00 )
+ printf("  buffer: [%.*s]", nread,  buffer );
       printf("\n" );
     }
   }
