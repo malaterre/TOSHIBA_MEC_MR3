@@ -46,6 +46,7 @@ enum {
   TYPE_UINT11   = 0xc200, // uint16_t
   TYPE_UINT12   = 0x2200, // another uint16_t ?
   TYPE_UINT13   = 0x7200, // another uint16_t ?
+  TYPE_UINT14   = 0x2300, // compressed / DIB ?
 };
 
 struct __attribute__ ((__packed__)) S
@@ -304,6 +305,7 @@ static void print( const S & s, const unsigned char buffer[] )
       std::cout << std::endl;
       break;
     case TYPE_INT1:
+    case TYPE_UINT14:
       std::cout << " INT1 ";
       assert( s.flag == 0xff00 );
       print_type<int32_t>( buffer, s.len );
@@ -370,7 +372,7 @@ static void print( const S & s, const unsigned char buffer[] )
     case TYPE_UINT9:
       std::cout << " UINT9 ";
       assert( s.flag == 0xff00 );
-      assert( s.len == 16 );
+      assert( s.len == 16 || s.len == 20 );
       print_type<uint32_t>( buffer, s.len );
       print2( s.separator );
       std::cout << std::endl;
@@ -440,20 +442,20 @@ static void print( const S & s, const unsigned char buffer[] )
       print2( s.separator ); std::cout << std::endl;
       break;
     default:
-      assert(0);
       std::cout << " ?? (" << std::hex << s.type << ") ";
-      std::cout << "(" << std::hex << s.flag << std::dec << ") ";
-      std::cout << std::dec << (int)s.len << " [" << std::string((char*)buffer,s.len) << "]";
-      std::cout << ",  DL  "; print_type<double>( buffer, s.len );
-      std::cout << ",  FL  "; print_type<float>( buffer, s.len );
-      std::cout << ",  U64  "; print_type<uint64_t>( buffer, s.len );
-      std::cout << ",  U32  "; print_type<uint32_t>( buffer, s.len );
-      std::cout << ",  U16  "; print_type<uint16_t>( buffer, s.len );
-      std::cout << ",  U8  "; print_type<uint8_t>( buffer, s.len );
-      std::cout << ",  I64  "; print_type<int64_t>( buffer, s.len );
-      std::cout << ",  I32  "; print_type<int32_t>( buffer, s.len );
-      std::cout << ",  I16  "; print_type<int16_t>( buffer, s.len );
-      std::cout << ",  I8  "; print_type<int8_t>( buffer, s.len );
+      std::cout << std::endl << "(" << std::hex << s.flag << std::dec << ") ";
+      std::cout << std::endl << ", STR  " << std::dec << (int)s.len << " [" << std::string((char*)buffer,s.len) << "]";
+      std::cout << std::endl << ",  DL  "; print_type<double>( buffer, s.len );
+      std::cout << std::endl << ",  FL  "; print_type<float>( buffer, s.len );
+      std::cout << std::endl << ",  U64  "; print_type<uint64_t>( buffer, s.len );
+      std::cout << std::endl << ",  U32  "; print_type<uint32_t>( buffer, s.len );
+      std::cout << std::endl << ",  U16  "; print_type<uint16_t>( buffer, s.len );
+      std::cout << std::endl << ",  U8  "; print_type<uint8_t>( buffer, s.len );
+      std::cout << std::endl << ",  I64  "; print_type<int64_t>( buffer, s.len );
+      std::cout << std::endl << ",  I32  "; print_type<int32_t>( buffer, s.len );
+      std::cout << std::endl << ",  I16  "; print_type<int16_t>( buffer, s.len );
+      std::cout << std::endl << ",  I8  "; print_type<int8_t>( buffer, s.len );
+      assert(0);
       //print2( s.separator );
       std::cout << std::endl;
   }
