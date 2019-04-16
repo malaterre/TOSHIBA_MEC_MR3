@@ -29,17 +29,81 @@ typedef struct /* __attribute__((__packed__))*/ I {
 
 static const unsigned char magic2[] = {0,0,0,0,0,0,0,0,0xc,0,0,0,0,0,0,0,0,0,0,0};
 
+static int debug = 0;
+static void dump2file(const char * in, int len )
+{
+  char buffer[512];
+  sprintf( buffer, "out%04d", debug );
+  ++debug;
+  FILE * f = fopen( buffer, "wb" );
+  fwrite( in, 1, len, f );
+  fclose( f );
+}
+
 enum Type{
-  STRING = 0x2c, // ASCII (UTF-8 ?) string
+  FLOAT1     = 0x01, // float single precision. 55ff ?
+  WSTRING    = 0x03, // ISO-8859-1 ?
+  FLOAT5     = 0x05, // float single precision. a806 seems to refers to FOV (700d,1005)
+  VECT3FLOAT = 0x06, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
+  CHARACTER_SET = 0x23, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
+  STRING     = 0x2c, // ASCII (UTF-8 ?) string
 };
+static void print_float( const float * buffer, int len)
+{
+  const int  m = sizeof(float);
+  assert( len % m == 0 );
+  int i;
+  printf(" [");
+  for (i=0;i < len / m;i++) {
+ if(i)
+  printf(",");
+      printf("%f",buffer[i]);
+  }
+  printf("]");
+}
+
+static void print_wstring( const char * buffer, int len)
+{
+  const char * iso = (char*)buffer + 7;
+  const int diff = len - (7 + 9 + 3);
+  const char * next = buffer + 7 + 9 + 3;
+  //dump2file( buffer, len );
+  //assert(0);
+  int len2 = (unsigned char)buffer[3];
+  int len3 = (unsigned char)buffer[5];
+  int len4 = (unsigned char)buffer[17];
+  assert(len2 + 4 == len);
+  assert( len3 == 9 );
+  assert( len4 == diff );
+  printf(" [%.*s : %.*s] #%d", len3, iso, len4, next, len);
+}
 static void print(int type, char *buffer, int len)
 {
   switch(type)
   {
+    case FLOAT1:
+      assert( len == 4 );
+      print_float( (float*)buffer, len);
+      break;
+    case WSTRING:
+      print_wstring( buffer, len);
+      break;
+    case FLOAT5:
+      assert( len == 4 || len == 8 );
+      print_float( (float*)buffer, len);
+      break;
+    case VECT3FLOAT:
+      assert( len % 12 == 0 );
+      print_float( (float*)buffer, len);
+      break;
     case STRING:
       //assert( buffer[len-1] == 0 );
       printf(" [%.*s] #%d", len, buffer, len);
       //printf(" [%s]", buffer);
+      break;
+    case 0xc3:
+    case CHARACTER_SET:
+      dump2file(buffer, len );
       break;
     default:
       printf(" [??] #%d", len);
