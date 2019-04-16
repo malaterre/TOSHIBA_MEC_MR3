@@ -29,6 +29,23 @@ typedef struct /* __attribute__((__packed__))*/ I {
 
 static const unsigned char magic2[] = {0,0,0,0,0,0,0,0,0xc,0,0,0,0,0,0,0,0,0,0,0};
 
+enum Type{
+  STRING = 0x2c, // ASCII (UTF-8 ?) string
+};
+static void print(int type, char *buffer, int len)
+{
+  switch(type)
+  {
+    case STRING:
+      //assert( buffer[len-1] == 0 );
+      printf(" [%.*s] #%d", len, buffer, len);
+      //printf(" [%s]", buffer);
+      break;
+    default:
+      printf(" [??] #%d", len);
+  }
+}
+
 int main(int argc, char * argv[])
 {
   if( argc < 2 ) return 1;
@@ -93,7 +110,8 @@ int main(int argc, char * argv[])
 
       }
       //printf("  #k1: 0x%08lx #k2: 0x%08x #k3: 0x%04x k4: 0x%04x", si.k1, si.k2, si.len, si.k4 );
-      printf("  #k11: 0x%04x #k12: 0x%04x #k21: 0x%02x #k22: 0x%04x #k3: %04d", si.k11, si.k12, si.k21 >> 8, si.k22, si.len );
+      //printf("  #k11: 0x%04x #k12: 0x%04x #k21: 0x%02x #k22: 0x%04x #k3: %04d", si.k11, si.k12, si.k21 >> 8, si.k22, si.len );
+      printf("  #k11: 0x%04x #k12: 0x%04x #k21: 0x%02x #k22: 0x%04x ", si.k11, si.k12, si.k21 >> 8, si.k22 );
       assert( si.k12 <= 0x3 );
       assert( ( si.k21 & 0x00ff ) == 0x0 );
       assert( si.len <= 8192 );
@@ -104,8 +122,9 @@ int main(int argc, char * argv[])
       assert( si.len <= sizeof buffer );
       nread = fread( buffer, 1, si.len, in );
       assert( nread == (size_t)si.len );
+      print( si.k21 >> 8, buffer, nread );
 //      if( si.k2 == 0xff002c00 )
- printf("  buffer: [%.*s]", nread,  buffer );
+// printf("  buffer: [%.*s]", nread,  buffer );
       printf("\n" );
     }
   }
