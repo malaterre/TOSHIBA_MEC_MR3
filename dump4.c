@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <byteswap.h>
+#include <math.h>
 
 typedef struct S {
   char buf[32];
@@ -42,25 +43,62 @@ static void dump2file(const char * in, int len )
 
 enum Type{
   FLOAT1     = 0x01, // float single precision. 55ff ?
-  WSTRING    = 0x03, // ISO-8859-1 ?
+  FLOAT2     = 0x02, // float single precision. 0009 ? This is odd since all values are always 0.0
   FLOAT5     = 0x05, // float single precision. a806 seems to refers to FOV (700d,1005)
   VECT3FLOAT = 0x06, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
-  CHARACTER_SET = 0x23, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
+  FLOAT21    = 0x21, // float single precision. 3a5e ??
+  FLOAT28    = 0x28, // float single precision. afea ??
+  WSTRING    = 0x03, // ISO-8859-1 ?
   STRING     = 0x2c, // ASCII (UTF-8 ?) string
+  STRING41   = 0xc1, // 6 bytes strings, with 41 padding. 0xa965 ?
+  UINT16_2   = 0xc2, // 66 / 396, all multiple of 11 ??
+  CHARACTER_SET = 0x23, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
 };
+static bool iszero( float f )
+{
+  char buf0[4];
+  char buf1[4];
+  float zero = 0;
+  memcpy( buf0, &zero, sizeof zero );
+  memcpy( buf1, &f, sizeof f );
+  int b = memcmp( buf0, buf1, 4 );
+  assert( b == 0 );
+  return true;
+}
+
 static void print_float( const float * buffer, int len)
 {
   const int  m = sizeof(float);
   assert( len % m == 0 );
   int i;
   printf(" [");
-  for (i=0;i < len / m;i++) {
- if(i)
-  printf(",");
-      printf("%f",buffer[i]);
+  for (i=0;i < len / m; i++) {
+      if(i) printf(",");
+#if 0
+      const float cur = buffer[i];
+#else
+      float cur = -1;
+      memcpy( &cur, buffer+i, sizeof cur);
+#endif
+      assert( iszero(cur) && isfinite(cur) && !isnan(cur) );
+      printf("%f", cur);
   }
-  printf("]");
+  printf("] #%d", len);
 }
+static void print_uint16( const uint16_t * buffer, int len)
+{
+  const int  m = sizeof(uint16_t);
+  assert( len % m == 0 );
+  int i;
+  printf(" [");
+  for (i=0;i < len / m; i++) {
+      if(i) printf(",");
+      const uint16_t cur = buffer[i];
+      printf("%d", cur);
+  }
+  printf("] #%d", len);
+}
+
 
 static void print_wstring( const char * buffer, int len)
 {
@@ -77,6 +115,23 @@ static void print_wstring( const char * buffer, int len)
   assert( len4 == diff );
   printf(" [%.*s : %.*s] #%d", len3, iso, len4, next, len);
 }
+
+static void print_string41( const char * buffer, int len)
+{
+  assert( len % 6 == 0 );
+  const int n = len / 6;
+  int i;
+  printf(" [");
+  for( i = 0; i < n; ++i ) {
+      if(i) printf(",");
+    const char * str = buffer + i * 6;
+    assert( str[3] == 0x0 );
+    const int c = str[4];
+    assert( str[5] == 0x41 );
+    printf("%.*s#%d", 3, str, c);
+  }
+  printf("] #%d", len);
+}
 static void print(int type, char *buffer, int len)
 {
   switch(type)
@@ -85,8 +140,20 @@ static void print(int type, char *buffer, int len)
       assert( len == 4 );
       print_float( (float*)buffer, len);
       break;
+    case FLOAT2:
+      print_float( (float*)buffer, len);
+      break;
+    case FLOAT21:
+      print_float( (float*)buffer, len);
+      break;
+    case FLOAT28:
+      print_float( (float*)buffer, len);
+      break;
     case WSTRING:
       print_wstring( buffer, len);
+      break;
+    case STRING41:
+      print_string41( buffer, len);
       break;
     case FLOAT5:
       assert( len == 4 || len == 8 );
@@ -95,6 +162,10 @@ static void print(int type, char *buffer, int len)
     case VECT3FLOAT:
       assert( len % 12 == 0 );
       print_float( (float*)buffer, len);
+      break;
+    case UINT16_2:
+      assert( len % 11 == 0 );
+      print_uint16( (uint16_t*)buffer, len);
       break;
     case STRING:
       //assert( buffer[len-1] == 0 );
