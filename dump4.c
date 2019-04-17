@@ -62,6 +62,7 @@ static bool iszero( float f )
   memcpy( buf0, &zero, sizeof zero );
   memcpy( buf1, &f, sizeof f );
   int b = memcmp( buf0, buf1, 4 );
+  if( f == 0.0 )
   assert( b == 0 );
   return true;
 }
