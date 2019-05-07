@@ -1,3 +1,4 @@
+//#define __STDC_WANT_LIB_EXT1__ 1
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -41,18 +42,52 @@ static void dump2file(const char * in, int len )
   fclose( f );
 }
 
-enum Type{
-  FLOAT1     = 0x01, // float single precision. 55ff ?
+enum Type {
+  UNK1       = 0x01, // 55ff ?
   FLOAT2     = 0x02, // float single precision. 0009 ? This is odd since all values are always 0.0
-  FLOAT5     = 0x05, // float single precision. a806 seems to refers to FOV (700d,1005)
-  VECT3FLOAT = 0x06, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
-  FLOAT21    = 0x21, // float single precision. 3a5e ??
-  FLOAT28    = 0x28, // float single precision. afea ??
   WSTRING    = 0x03, // ISO-8859-1 ?
+  UNK4       = 0x04, // 
+  VECT2FLOAT = 0x05, // float single precision x 2. a806 seems to refers to FOV (700d,1005)
+  VECT3FLOAT = 0x06, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
+  FLOAT8     = 0x08, // 0x55f9 patient weight / 55f8 Patient height * 100 (in cm)
+  UNK21      = 0x21, // 3a5e ??
+  FLOAT28    = 0x28, // float single precision. afea ??
   STRING     = 0x2c, // ASCII (UTF-8 ?) string
   STRING41   = 0xc1, // 6 bytes strings, with 41 padding. 0xa965 ?
-  UINT16_2   = 0xc2, // 66 / 396, all multiple of 11 ??
+  UNKC2      = 0xc2, // 66 / 396, all multiple of 11 ??
   CHARACTER_SET = 0x23, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
+#if 0
+ #type: 0x01 
+ #type: 0x02 
+ #type: 0x03 
+ #type: 0x04 
+ #type: 0x05 
+ #type: 0x06 
+ #type: 0x08 
+ #type: 0x0b 
+ #type: 0x0e 
+ #type: 0x21 
+ #type: 0x22 
+ #type: 0x23 
+ #type: 0x24 
+ #type: 0x25 
+ #type: 0x28 
+ #type: 0x29 
+ #type: 0x2a 
+ #type: 0x2c 
+ #type: 0x31 
+ #type: 0x32 
+ #type: 0x70 
+ #type: 0x72 
+ #type: 0xb8 
+ #type: 0xb9 
+ #type: 0xba 
+ #type: 0xbb 
+ #type: 0xc1 
+ #type: 0xc2 
+ #type: 0xc3 
+ #type: 0xd0 
+#endif
 };
 static bool iszero( float f )
 {
@@ -99,6 +134,43 @@ static void print_uint16( const uint16_t * buffer, int len)
   }
   printf("] #%d", len);
 }
+static void print_int32( const int32_t * buffer, int len)
+{
+  const int  m = sizeof(int32_t);
+  assert( len % m == 0 );
+  int i;
+  printf(" [");
+  for (i=0;i < len / m; i++) {
+      if(i) printf(",");
+      const int32_t cur = buffer[i];
+      printf("%d", cur);
+  }
+  printf("] #%d", len);
+}
+static void print_uint32( const uint32_t * buffer, int len)
+{
+  const int  m = sizeof(uint32_t);
+  assert( len % m == 0 );
+  int i;
+  printf(" [");
+  for (i=0;i < len / m; i++) {
+      if(i) printf(",");
+      const uint32_t cur = buffer[i];
+      printf("%u", cur);
+  }
+  printf("] #%d", len);
+}
+static void print_hex( const unsigned char * buffer, int len)
+{
+  int i;
+  printf(" [");
+  for (i=0;i < len ; i++) {
+      const unsigned char cur = buffer[i];
+      if(i) printf("\\");
+      printf("%02x", cur);
+  }
+  printf("] #%d", len);
+}
 
 
 static void print_wstring( const char * buffer, int len)
@@ -137,17 +209,42 @@ static void print(int type, char *buffer, int len)
 {
   switch(type)
   {
-    case FLOAT1:
+    case UNK1:
+      assert( len == 4 );
+      print_float( (float*)buffer, len);
+      print_uint32( (uint32_t*)buffer, len);
+      print_uint16( (uint16_t*)buffer, len);
+      print_hex( buffer, len);
+      break;
+    case FLOAT2:
+      // len can be anything
+      print_float( (float*)buffer, len);
+      break;
+    case VECT2FLOAT:
+      assert( len == 8 );
+      print_float( (float*)buffer, len);
+      break;
+    case VECT3FLOAT:
+      assert( len % 12 == 0 );
+      print_float( (float*)buffer, len);
+      break;
+    case UNK4:
+      assert( len % 4 == 0 );
+      print_uint32( (uint32_t*)buffer, len);
+      print_hex( buffer, len);
+      break;
+    case FLOAT8:
       assert( len == 4 );
       print_float( (float*)buffer, len);
       break;
-    case FLOAT2:
+    case UNK21:
+      assert( len == 20 );
       print_float( (float*)buffer, len);
-      break;
-    case FLOAT21:
-      print_float( (float*)buffer, len);
+      print_int32( (int32_t*)buffer, len);
+      print_hex( buffer, len);
       break;
     case FLOAT28:
+      assert( len == 0 || len == 4 || len == 8 || len == 12 || len == 512 );
       print_float( (float*)buffer, len);
       break;
     case WSTRING:
@@ -156,29 +253,34 @@ static void print(int type, char *buffer, int len)
     case STRING41:
       print_string41( buffer, len);
       break;
-    case FLOAT5:
-      assert( len == 4 || len == 8 );
-      print_float( (float*)buffer, len);
-      break;
-    case VECT3FLOAT:
-      assert( len % 12 == 0 );
-      print_float( (float*)buffer, len);
-      break;
-    case UINT16_2:
+    case UNKC2:
+{
       assert( len % 11 == 0 );
-      print_uint16( (uint16_t*)buffer, len);
+      int mult = len / 11;
+      assert( mult == 24 || mult == 36 || mult == 48 );
+      //print_uint16( (uint16_t*)buffer, len);
+      dump2file(buffer, len );
+      print_hex( buffer, len);
+}
       break;
     case STRING:
-      //assert( buffer[len-1] == 0 );
-      printf(" [%.*s] #%d", len, buffer, len);
+{
+      //if( len % 2 == 0 ) assert( buffer[len-1] == 0 );
+      //b3d5 does not seems to contains a trailing NULL
+      //size_t sl = strnlen(buffer, len);
+      printf(" [%.*s] #%d (%d)", len, buffer, len, strnlen(buffer, len));
       //printf(" [%s]", buffer);
+}
       break;
+#if 0
     case 0xc3:
     case CHARACTER_SET:
       dump2file(buffer, len );
       break;
+#endif
     default:
-      printf(" [??] #%d", len);
+      //printf(" [??] #%d", len);
+      print_hex( buffer, len);
   }
 }
 
@@ -235,6 +337,7 @@ int main(int argc, char * argv[])
       //printf("  #k0: 0x%08lx #k2: 0x%08x #k3: 0x%04x k4: 0x%04x", si.k1, si.k2, si.len, si.k4 );
       //printf("  #Pos: %08ld 0x%08lx #Len:%08u 0x%08x\n", pos, pos, si.len, si.len );
       assert( si.k4 == 0 );
+#if 0
       if( si.k4 != 0 ) {
         assert( si.k4 == 0xff00 );
         memcpy(buf, &s, sizeof s);
@@ -243,14 +346,15 @@ int main(int argc, char * argv[])
         uint32_t debug;
         memcpy(&debug, buf, 4);
         printf(" #debug: %08x\n", debug);
-
       }
+#endif
       //printf("  #k1: 0x%08lx #k2: 0x%08x #k3: 0x%04x k4: 0x%04x", si.k1, si.k2, si.len, si.k4 );
       //printf("  #k11: 0x%04x #k12: 0x%04x #k21: 0x%02x #k22: 0x%04x #k3: %04d", si.k11, si.k12, si.k21 >> 8, si.k22, si.len );
-      printf("  #k11: 0x%04x #k12: 0x%04x #k21: 0x%02x #k22: 0x%04x ", si.k11, si.k12, si.k21 >> 8, si.k22 );
-      assert( si.k12 <= 0x3 );
       assert( ( si.k21 & 0x00ff ) == 0x0 );
-      assert( si.len <= 8192 );
+      const uint8_t type = si.k21 >> 8;
+      printf("  #k11: 0x%04x #k12: 0x%01x #type: 0x%02x #k22: 0x%04x ", si.k11, si.k12, type, si.k22 );
+      assert( si.k12 <= 0x3 );
+      assert( si.len <= 9184 /* 8192 */ );
       //printf("  #k1: 0x%08lx #k2: 0x%08x", si.k1, si.k2 );
 //      printf("  #Pos: %7ld 0x%08lx #Len:%08u 0x%08x\n", pos, pos, si.len, si.len );
       int b = memcmp(si.separator, magic2, sizeof(magic2) );
@@ -258,7 +362,7 @@ int main(int argc, char * argv[])
       assert( si.len <= sizeof buffer );
       nread = fread( buffer, 1, si.len, in );
       assert( nread == (size_t)si.len );
-      print( si.k21 >> 8, buffer, nread );
+      print( type, buffer, nread );
 //      if( si.k2 == 0xff002c00 )
 // printf("  buffer: [%.*s]", nread,  buffer );
       printf("\n" );

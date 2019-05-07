@@ -455,7 +455,7 @@ static void print( const S & s, const unsigned char buffer[] )
       std::cout << std::endl << ",  I32  "; print_type<int32_t>( buffer, s.len );
       std::cout << std::endl << ",  I16  "; print_type<int16_t>( buffer, s.len );
       std::cout << std::endl << ",  I8  "; print_type<int8_t>( buffer, s.len );
-      assert(0);
+      //assert(0);
       //print2( s.separator );
       std::cout << std::endl;
   }
@@ -505,7 +505,7 @@ int main(int argc, char * argv[])
         os.write( (char*)buffer, s.len );
         std::cout << "skip:(" << std::hex << std::setw(4) << std::setfill('0') << (unsigned int)s.key1 << "," << (unsigned int)s.key2 << ") ";
         std::cout << " ?? (" << std::hex << s.type << ") ";
-        assert( s.flag == 0x0 || s.flag == 0xff00 );
+        assert( s.flag == 0x0 || s.flag == 0xff00 || s.flag == 0x1f || s.flag == 0xb );
         std::cout << s.len << " [" << "]";
         print2( s.separator );
         //os.write( (char*)s.separator, 22 );
