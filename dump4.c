@@ -44,12 +44,13 @@ static void dump2file(const char * in, int len )
 
 enum Type {
   UNK1       = 0x01, // 55ff ?
-  FLOAT2     = 0x02, // float single precision. 0009 ? This is odd since all values are always 0.0
+  UNK2       = 0x02, // 
   WSTRING    = 0x03, // ISO-8859-1 ?
   UNK4       = 0x04, // 
   VECT2FLOAT = 0x05, // float single precision x 2. a806 seems to refers to FOV (700d,1005)
   VECT3FLOAT = 0x06, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
   FLOAT8     = 0x08, // 0x55f9 patient weight / 55f8 Patient height * 100 (in cm)
+  UNKB       = 0x0b, // 
   UNK21      = 0x21, // 3a5e ??
   FLOAT28    = 0x28, // float single precision. afea ??
   STRING     = 0x2c, // ASCII (UTF-8 ?) string
@@ -97,8 +98,7 @@ static bool iszero( float f )
   memcpy( buf0, &zero, sizeof zero );
   memcpy( buf1, &f, sizeof f );
   int b = memcmp( buf0, buf1, 4 );
-  if( f == 0.0 )
-  assert( b == 0 );
+//  if( f == 0.0 ) assert( b == 0 );
   return true;
 }
 
@@ -216,9 +216,12 @@ static void print(int type, char *buffer, int len)
       print_uint16( (uint16_t*)buffer, len);
       print_hex( buffer, len);
       break;
-    case FLOAT2:
-      // len can be anything
-      print_float( (float*)buffer, len);
+    case UNK2:
+      assert( len % 4 == 0 );
+      //print_float( (float*)buffer, len);
+      print_uint16( (uint16_t*)buffer, len);
+      print_uint32( (uint32_t*)buffer, len);
+      print_hex( buffer, len);
       break;
     case VECT2FLOAT:
       assert( len == 8 );
@@ -231,6 +234,10 @@ static void print(int type, char *buffer, int len)
     case UNK4:
       assert( len % 4 == 0 );
       print_uint32( (uint32_t*)buffer, len);
+      print_hex( buffer, len);
+      break;
+    case UNKB:
+      assert( len == 12 );
       print_hex( buffer, len);
       break;
     case FLOAT8:
@@ -257,7 +264,7 @@ static void print(int type, char *buffer, int len)
 {
       assert( len % 11 == 0 );
       int mult = len / 11;
-      assert( mult == 24 || mult == 36 || mult == 48 );
+      assert( mult == 6 || mult == 24 || mult == 36 || mult == 48 );
       //print_uint16( (uint16_t*)buffer, len);
       dump2file(buffer, len );
       print_hex( buffer, len);
