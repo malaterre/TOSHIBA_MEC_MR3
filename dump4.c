@@ -67,6 +67,7 @@ enum Type {
  #type: 0x08 
  #type: 0x0b 
  #type: 0x0e 
+ #type: 0x20 
  #type: 0x21 
  #type: 0x22 
  #type: 0x23 
@@ -78,6 +79,13 @@ enum Type {
  #type: 0x2c 
  #type: 0x31 
  #type: 0x32 
+ #type: 0x40 
+ #type: 0x41 
+ #type: 0x43 
+ #type: 0x44 
+ #type: 0x46 
+ #type: 0x5e 
+ #type: 0x5f 
  #type: 0x70 
  #type: 0x72 
  #type: 0xb8 
@@ -341,7 +349,7 @@ int main(int argc, char * argv[])
     {
       memset(&s, 0, sizeof s);
       long pos = ftell(in);
-      printf("Offset 0x%x \n", pos );
+      //printf("Offset 0x%x \n", pos );
       fread(&s, 1, sizeof s, in);
       memcpy(&si, &s, sizeof s);
       //printf("  #k1: %08ld 0x%08lx #k2:%016u 0x%08x", si.k1, si.k1, si.k2, si.k2 );
@@ -361,6 +369,25 @@ int main(int argc, char * argv[])
 #endif
       //printf("  #k1: 0x%08lx #k2: 0x%08x #k3: 0x%04x k4: 0x%04x", si.k1, si.k2, si.len, si.k4 );
       //printf("  #k11: 0x%04x #k12: 0x%04x #k21: 0x%02x #k22: 0x%04x #k3: %04d", si.k11, si.k12, si.k21 >> 8, si.k22, si.len );
+/*
+ * #k22: 0x0000
+ * #k22: 0x0007
+ * #k22: 0x000b
+ * #k22: 0x0017
+ * #k22: 0x001b
+ * #k22: 0x001f
+ * #k22: 0xff00
+ * #k22: 0xfff0
+ */
+      assert( si.k22 == 0x0000 // 0
+           || si.k22 == 0x0007 // 7
+           || si.k22 == 0x000b // 11
+           || si.k22 == 0x0017 // 23
+           || si.k22 == 0x001b // 27
+           || si.k22 == 0x001f // 31
+           || si.k22 == 0xff00 // 65280
+           || si.k22 == 0xfff0 // 65520
+           );
       assert( ( si.k21 & 0x00ff ) == 0x0 );
       const uint8_t type = si.k21 >> 8;
       printf("  #k11: 0x%04x #k12: 0x%01x #type: 0x%02x #k22: 0x%04x ", si.k11, si.k12, type, si.k22 );
