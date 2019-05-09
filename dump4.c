@@ -43,20 +43,31 @@ static void dump2file(const char * in, int len )
 }
 
 enum Type {
-  UNK1       = 0x01, // 55ff ?
-  UNK2       = 0x02, // 
-  WSTRING    = 0x03, // ISO-8859-1 ?
-  UNK4       = 0x04, // 
-  VECT2FLOAT = 0x05, // float single precision x 2. a806 seems to refers to FOV (700d,1005)
-  VECT3FLOAT = 0x06, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
-  FLOAT8     = 0x08, // 0x55f9 patient weight / 55f8 Patient height * 100 (in cm)
-  UNKB       = 0x0b, // 
-  UNK21      = 0x21, // 3a5e ??
-  FLOAT28    = 0x28, // float single precision. afea ??
-  STRING     = 0x2c, // ASCII (UTF-8 ?) string
-  STRING41   = 0xc1, // 6 bytes strings, with 41 padding. 0xa965 ?
-  UNKC2      = 0xc2, // 66 / 396, all multiple of 11 ??
+  UNK1          = 0x01, // 55ff ?
+  UNK2          = 0x02, // 
+  WSTRING       = 0x03, // ISO-8859-1 ?
+  UNK4          = 0x04, // 
+  VECT2FLOAT    = 0x05, // float single precision x 2. a806 seems to refers to FOV (700d,1005)
+  VECT3FLOAT    = 0x06, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
+  FLOAT8        = 0x08, // 0x55f9 patient weight / 55f8 Patient height * 100 (in cm)
+  UNKB          = 0x0b, // 
+  DATETIME      = 0x0e, // Date/Time stored as ASCII
+  UNK20         = 0x20, // USAN string ???
+  UNK21         = 0x21, // 3a5e ??
+  UINT16        = 0x22, // 1bc3 contains a 64x64x 16bits icon image (most likely either bytes or ushort)
   CHARACTER_SET = 0x23, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
+  UNK24         = 0x24, // 
+  UNK25         = 0x25, // 
+  FLOAT28       = 0x28, // float single precision. afea ??
+  DOUBLE        = 0x29, // 0x13ec is Imaging Frequency
+  BOOL          = 0x2a, // BOOL stored as UINT32
+  STRING        = 0x2c, // ASCII (UTF-8 ?) string
+  UNK31         = 0x31, // 
+  UNK32         = 0x32, // 
+  UNKBA         = 0xba, // 
+  STRING41      = 0xc1, // 6 bytes strings, with 41 padding. 0xa965 ?
+  UNKC2         = 0xc2, // 66 / 396, all multiple of 11 ??
+  UNKD0         = 0xd0,
 #if 0
  #type: 0x01 
  #type: 0x02 
@@ -129,6 +140,20 @@ static void print_float( const float * buffer, int len)
   }
   printf("] #%d", len);
 }
+static void print_double( const double * buffer, int len)
+{
+  const int  m = sizeof(double);
+  assert( len % m == 0 );
+  int i;
+  printf(" [");
+  for (i=0;i < len / m; i++) {
+      if(i) printf(",");
+      const double cur = buffer[i];
+      assert( isfinite(cur) && !isnan(cur) );
+      printf("%g", cur);
+  }
+  printf("] #%d", len);
+}
 static void print_uint16( const uint16_t * buffer, int len)
 {
   const int  m = sizeof(uint16_t);
@@ -152,6 +177,32 @@ static void print_int32( const int32_t * buffer, int len)
       if(i) printf(",");
       const int32_t cur = buffer[i];
       printf("%d", cur);
+  }
+  printf("] #%d", len);
+}
+static void print_int64( const int64_t * buffer, int len)
+{
+  const int  m = sizeof(int64_t);
+  assert( len % m == 0 );
+  int i;
+  printf(" [");
+  for (i=0;i < len / m; i++) {
+      if(i) printf(",");
+      const int64_t cur = buffer[i];
+      printf("%lld", cur);
+  }
+  printf("] #%d", len);
+}
+static void print_uint64( const uint64_t * buffer, int len)
+{
+  const int  m = sizeof(uint64_t);
+  assert( len % m == 0 );
+  int i;
+  printf(" [");
+  for (i=0;i < len / m; i++) {
+      if(i) printf(",");
+      const uint64_t cur = buffer[i];
+      printf("%llu", cur);
   }
   printf("] #%d", len);
 }
@@ -180,21 +231,42 @@ static void print_hex( const unsigned char * buffer, int len)
   printf("] #%d", len);
 }
 
-
+static void print_string( const char * buffer, int len)
+{
+  printf(" [%.*s] #%d (%d)", len, buffer, len, strnlen(buffer, len));
+}
 static void print_wstring( const char * buffer, int len)
 {
-  const char * iso = (char*)buffer + 7;
-  const int diff = len - (7 + 9 + 3);
-  const char * next = buffer + 7 + 9 + 3;
-  //dump2file( buffer, len );
-  //assert(0);
-  int len2 = (unsigned char)buffer[3];
-  int len3 = (unsigned char)buffer[5];
-  int len4 = (unsigned char)buffer[17];
-  assert(len2 + 4 == len);
-  assert( len3 == 9 );
-  assert( len4 == diff );
-  printf(" [%.*s : %.*s] #%d", len3, iso, len4, next, len);
+  static const char magic[] = { 0xdf, 0xff, 0x79 };
+  int b = memcmp(buffer, magic, sizeof(magic) );
+  if( b == 0) {
+/*
+$ hexdump -C out0000 
+00000000  df ff 79 17 01 09 00 49  53 4f 38 38 35 39 2d 31  |..y....ISO8859-1|
+00000010  02 08 00 30 30 30 30 30  30 30 30                 |...00000000|
+0000001b
+*/
+    assert( buffer[4] == 0x1 );
+    assert( buffer[5] == 0x9 );
+    assert( buffer[6] == 0x0 );
+    assert( buffer[16] == 0x2 );
+    assert( buffer[18] == 0x0 );
+    const char * iso = (char*)buffer + 7;
+    const int diff = len - (7 + 9 + 3);
+    const char * next = buffer + 7 + 9 + 3;
+    //dump2file( buffer, len );
+    //assert(0);
+    int len2 = (unsigned char)buffer[3];
+    int len3 = (unsigned char)buffer[5];
+    int len4 = (unsigned char)buffer[17];
+    assert(len2 + 4 == len);
+    assert( len3 == 9 );
+    assert( len4 == diff );
+    assert( strncmp( iso, "ISO8859-1", 9 ) ==  0);
+    printf(" [%.*s : %.*s] #%d", len3, iso, len4, next, len);
+  } else {
+    printf(" [%.*s] #%d (%d)", len, buffer, len, strnlen(buffer, len));
+  }
 }
 
 static void print_string41( const char * buffer, int len)
@@ -213,16 +285,25 @@ static void print_string41( const char * buffer, int len)
   }
   printf("] #%d", len);
 }
+static const unsigned char usan[] = {
+  0x55, 0x53, 0x41, 0x4e, 0x00, 0x50, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00,
+  0x4e, 0x4b, 0x4e, 0x55, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
 static void print(int type, char *buffer, int len)
 {
   switch(type)
   {
     case UNK1:
       assert( len == 4 );
-      print_float( (float*)buffer, len);
+      //print_float( (float*)buffer, len);
       print_uint32( (uint32_t*)buffer, len);
-      print_uint16( (uint16_t*)buffer, len);
-      print_hex( buffer, len);
+      //print_uint16( (uint16_t*)buffer, len);
+      //print_hex( buffer, len);
       break;
     case UNK2:
       assert( len % 4 == 0 );
@@ -242,20 +323,66 @@ static void print(int type, char *buffer, int len)
     case UNK4:
       assert( len % 4 == 0 );
       print_uint32( (uint32_t*)buffer, len);
-      print_hex( buffer, len);
       break;
     case UNKB:
-      assert( len == 12 );
-      print_hex( buffer, len);
+      assert( len == 12 ); // int32 x 3 ?
+      print_int32( (int32_t*)buffer, len);
+      break;
+    case DATETIME:
+      assert( len == 19 || len == 20 );
+      print_string( buffer, len);
       break;
     case FLOAT8:
       assert( len == 4 );
       print_float( (float*)buffer, len);
       break;
+    case UNK20:
+      assert( len == 68 );
+      //assert( sizeof(usan) == 68 );
+      //assert( memcmp(buffer, usan, sizeof(usan) ) == 0 );
+      //dump2file(buffer, len);
+      print_hex(buffer, len);
+      break;
     case UNK21:
       assert( len == 20 || len == 16 || len == 24 );
       print_float( (float*)buffer, len);
       print_int32( (int32_t*)buffer, len);
+      print_hex( buffer, len);
+      break;
+    case UINT16:
+      print_uint16( (uint16_t*)buffer, len);
+      //print_hex( buffer, len);
+      break;
+    case UNK24:
+      assert( len % 4 == 0 );
+      print_int32( (int32_t*)buffer, len);
+      break;
+    case UNK25:
+      assert( len == 4 || len == 512 );
+      print_uint32( (uint32_t*)buffer, len);
+      break;
+    case UNKBA:
+      assert( len == 8 ); // pair of uint32 ?
+      print_uint32( (uint32_t*)buffer, len);
+      break;
+    case UNK31:
+      assert( len == 8 || len == 16 );
+      print_uint64( (uint64_t*)buffer, len);
+      break;
+    case UNK32:
+      assert( len % 4 == 0 ); // all uint are lower than uin16_max
+      print_uint32( (uint32_t*)buffer, len);
+      break;
+    case BOOL:
+      assert( len % 4 == 0 ); // bool ?
+      print_uint32( (uint32_t*)buffer, len);
+      break;
+    case DOUBLE:
+      assert( len == 8 );
+      print_double( (double*)buffer, len);
+      break;
+    case UNKD0:
+      print_uint64( (uint64_t*)buffer, len);
       print_hex( buffer, len);
       break;
     case FLOAT28:
@@ -274,7 +401,7 @@ static void print(int type, char *buffer, int len)
       int mult = len / 11;
       assert( mult % 6 == 0 );
       //print_uint16( (uint16_t*)buffer, len);
-      dump2file(buffer, len );
+      //dump2file(buffer, len );
       print_hex( buffer, len);
 }
       break;
@@ -283,7 +410,8 @@ static void print(int type, char *buffer, int len)
       //if( len % 2 == 0 ) assert( buffer[len-1] == 0 );
       //b3d5 does not seems to contains a trailing NULL
       //size_t sl = strnlen(buffer, len);
-      printf(" [%.*s] #%d (%d)", len, buffer, len, strnlen(buffer, len));
+      //printf(" [%.*s] #%d (%d)", len, buffer, len, strnlen(buffer, len));
+      print_string( buffer, len );
       //printf(" [%s]", buffer);
 }
       break;
