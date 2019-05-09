@@ -245,13 +245,13 @@ static void print(int type, char *buffer, int len)
       print_float( (float*)buffer, len);
       break;
     case UNK21:
-      assert( len == 20 );
+      assert( len == 20 || len == 16 || len == 24 );
       print_float( (float*)buffer, len);
       print_int32( (int32_t*)buffer, len);
       print_hex( buffer, len);
       break;
     case FLOAT28:
-      assert( len == 0 || len == 4 || len == 8 || len == 12 || len == 512 );
+      assert( len % 4 == 0 );
       print_float( (float*)buffer, len);
       break;
     case WSTRING:
@@ -264,7 +264,7 @@ static void print(int type, char *buffer, int len)
 {
       assert( len % 11 == 0 );
       int mult = len / 11;
-      assert( mult == 6 || mult == 24 || mult == 36 || mult == 48 );
+      assert( mult % 6 == 0 );
       //print_uint16( (uint16_t*)buffer, len);
       dump2file(buffer, len );
       print_hex( buffer, len);
@@ -320,16 +320,19 @@ int main(int argc, char * argv[])
     #k1: 0x000017e3 #k2: 0xff002a00
     */
 
-  bool lastgroup = false;
+  //bool lastgroup = false;
+  int remain = 0;
   //for( r = 0; r < 6; ++r )
-  while( !lastgroup )
+  while( --remain != 0 )
   {
     uint32_t nitems;
     fread(&nitems, 1, sizeof nitems, in);
-    if( nitems == 1 ) {
+    //if( nitems == 1 || nitems == 3 ) {
+    if( nitems <= 3 ) {
        // special case to handle last element ?
       printf("<#last element coming: %08x>\n", nitems);
-      lastgroup = true;
+      assert( nitems > 0 );
+      remain = nitems;
       fread(&nitems, 1, sizeof nitems, in);
     }
     printf("Group %d #Items: %u\n", r,  nitems );
@@ -338,6 +341,7 @@ int main(int argc, char * argv[])
     {
       memset(&s, 0, sizeof s);
       long pos = ftell(in);
+      printf("Offset 0x%x \n", pos );
       fread(&s, 1, sizeof s, in);
       memcpy(&si, &s, sizeof s);
       //printf("  #k1: %08ld 0x%08lx #k2:%016u 0x%08x", si.k1, si.k1, si.k2, si.k2 );
@@ -378,6 +382,7 @@ int main(int argc, char * argv[])
 
   long pos = ftell(in);
   printf("pos: 0x%08x 0x%08x\n", pos, sz);
+  assert( pos == sz || pos + 1 == sz );
   int ret = feof(in);
   printf("feof: %d\n", ret);
   fclose(in);
