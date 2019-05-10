@@ -7,15 +7,13 @@
 #include <math.h>
 
 typedef struct I {
-  uint16_t key;
-  uint16_t tag1;
-  uint16_t type;
-  uint16_t tag2;
-  uint16_t len;
-  unsigned char separator[22];
+  uint32_t key;
+  uint32_t type;
+  uint32_t len;
+  unsigned char separator[20];
 } I;
 
-static const unsigned char magic2[] = {0,0,0,0,0,0,0,0,0,0,0xc,0,0,0,0,0,0,0,0,0,0,0};
+static const unsigned char magic2[] = {0,0,0,0,0,0,0,0,0xc,0,0,0,0,0,0,0,0,0,0,0};
 
 static int debug = 0;
 static void dump2file(const char * in, int len )
@@ -424,8 +422,8 @@ int main(int argc, char * argv[])
 
   I si;
   assert( sizeof(si) == 32 );
-  assert( sizeof(si.separator) == 22 );
-  assert( sizeof(magic2) == 22 );
+  assert( sizeof(si.separator) == 20 );
+  assert( sizeof(magic2) == 20 );
 
   /* TODO what to do with hypo tag + type because of:
     #k1: 0x000017e3 #k2: 0xff002400
@@ -461,19 +459,9 @@ int main(int argc, char * argv[])
  * #tag2: 0xff00
  * #tag2: 0xfff0
  */
-      assert( si.tag2 == 0x0000 // 0
-           || si.tag2 == 0x0007 // 7
-           || si.tag2 == 0x000b // 11
-           || si.tag2 == 0x0017 // 23
-           || si.tag2 == 0x001b // 27
-           || si.tag2 == 0x001f // 31
-           || si.tag2 == 0xff00 // 65280
-           || si.tag2 == 0xfff0 // 65520
-           );
       assert( ( si.type & 0x00ff ) == 0x0 );
       const uint8_t type = si.type >> 8;
-      printf("  #key: 0x%04x #tag1: 0x%01x #type: 0x%02x #tag2: 0x%04x ", si.key, si.tag1, type, si.tag2 );
-      assert( si.tag1 <= 0x3 );
+      printf("  #key: 0x%08x #type: 0x%08x ", si.key, si.type );
       assert( si.len <= 9184 /* 8192 */ );
       //printf("  #k1: 0x%08lx #k2: 0x%08x", si.k1, si.k2 );
 //      printf("  #Pos: %7ld 0x%08lx #Len:%08u 0x%08x\n", pos, pos, si.len, si.len );
