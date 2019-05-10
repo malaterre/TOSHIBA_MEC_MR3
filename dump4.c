@@ -1,4 +1,3 @@
-//#define __STDC_WANT_LIB_EXT1__ 1
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,29 +6,16 @@
 #include <byteswap.h>
 #include <math.h>
 
-typedef struct S {
-  char buf[32];
-} S;
-
-typedef struct /* __attribute__((__packed__))*/ I {
-#if 0
-  uint32_t k1;
-#else
-  uint16_t k11;
-  uint16_t k12;
-#endif
-#if 0
-  uint32_t k2;
-#else
-  uint16_t k21;
-  uint16_t k22;
-#endif
+typedef struct I {
+  uint16_t key;
+  uint16_t tag1;
+  uint16_t type;
+  uint16_t tag2;
   uint16_t len;
-  uint16_t k4;
-  unsigned char separator[20];
+  unsigned char separator[22];
 } I;
 
-static const unsigned char magic2[] = {0,0,0,0,0,0,0,0,0xc,0,0,0,0,0,0,0,0,0,0,0};
+static const unsigned char magic2[] = {0,0,0,0,0,0,0,0,0,0,0xc,0,0,0,0,0,0,0,0,0,0,0};
 
 static int debug = 0;
 static void dump2file(const char * in, int len )
@@ -56,11 +42,11 @@ enum Type {
   UNK21         = 0x21, // 3a5e ??
   UINT16        = 0x22, // 1bc3 contains a 64x64x 16bits icon image (most likely either bytes or ushort)
   CHARACTER_SET = 0x23, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
-  UNK24         = 0x24, // 
+  INT32         = 0x24, // 
   UNK25         = 0x25, // 
   FLOAT28       = 0x28, // float single precision. afea ??
   DOUBLE        = 0x29, // 0x13ec is Imaging Frequency
-  BOOL          = 0x2a, // BOOL stored as UINT32
+  BOOL          = 0x2a, // BOOL stored as INT32 ?
   STRING        = 0x2c, // ASCII (UTF-8 ?) string
   UNK31         = 0x31, // 
   UNK32         = 0x32, // 
@@ -309,15 +295,15 @@ static void print(int type, char *buffer, int len)
       assert( len % 4 == 0 );
       //print_float( (float*)buffer, len);
       print_uint16( (uint16_t*)buffer, len);
-      print_uint32( (uint32_t*)buffer, len);
-      print_hex( buffer, len);
+      //print_uint32( (uint32_t*)buffer, len);
+      //print_hex( buffer, len);
       break;
     case VECT2FLOAT:
       assert( len == 8 );
       print_float( (float*)buffer, len);
       break;
     case VECT3FLOAT:
-      assert( len % 12 == 0 );
+      assert( len % 12 == 0 ); // 12 or 36
       print_float( (float*)buffer, len);
       break;
     case UNK4:
@@ -353,7 +339,7 @@ static void print(int type, char *buffer, int len)
       print_uint16( (uint16_t*)buffer, len);
       //print_hex( buffer, len);
       break;
-    case UNK24:
+    case INT32:
       assert( len % 4 == 0 );
       print_int32( (int32_t*)buffer, len);
       break;
@@ -415,12 +401,6 @@ static void print(int type, char *buffer, int len)
       //printf(" [%s]", buffer);
 }
       break;
-#if 0
-    case 0xc3:
-    case CHARACTER_SET:
-      dump2file(buffer, len );
-      break;
-#endif
     default:
       //printf(" [??] #%d", len);
       print_hex( buffer, len);
@@ -433,7 +413,7 @@ int main(int argc, char * argv[])
   const char * filename = argv[1];
   FILE * in = fopen( filename, "rb" );
   int i,r = 0;
-  unsigned char buffer[5000*2];
+  char buffer[5000*2];
   long sz;
   size_t nread;
 
@@ -442,28 +422,21 @@ int main(int argc, char * argv[])
   fseek(in, 0L, SEEK_SET);
   printf("Size: %ld\n", sz);
 
-  S s;
-  assert( sizeof(s) == 32 );
   I si;
   assert( sizeof(si) == 32 );
-  assert( sizeof(si.separator) == 20 );
-  assert( sizeof(magic2) == 20 );
-  char buf[512];
-
+  assert( sizeof(si.separator) == 22 );
+  assert( sizeof(magic2) == 22 );
 
   /* TODO what to do with hypo tag + type because of:
     #k1: 0x000017e3 #k2: 0xff002400
     #k1: 0x000017e3 #k2: 0xff002a00
     */
 
-  //bool lastgroup = false;
   int remain = 0;
-  //for( r = 0; r < 6; ++r )
   while( --remain != 0 )
   {
     uint32_t nitems;
     fread(&nitems, 1, sizeof nitems, in);
-    //if( nitems == 1 || nitems == 3 ) {
     if( nitems <= 3 ) {
        // special case to handle last element ?
       printf("<#last element coming: %08x>\n", nitems);
@@ -475,51 +448,32 @@ int main(int argc, char * argv[])
     ++r;
     for( i = 0; i < nitems; ++i )
     {
-      memset(&s, 0, sizeof s);
-      long pos = ftell(in);
+      //long pos = ftell(in);
       //printf("Offset 0x%x \n", pos );
-      fread(&s, 1, sizeof s, in);
-      memcpy(&si, &s, sizeof s);
-      //printf("  #k1: %08ld 0x%08lx #k2:%016u 0x%08x", si.k1, si.k1, si.k2, si.k2 );
-      //printf("  #k0: 0x%08lx #k2: 0x%08x #k3: 0x%04x k4: 0x%04x", si.k1, si.k2, si.len, si.k4 );
-      //printf("  #Pos: %08ld 0x%08lx #Len:%08u 0x%08x\n", pos, pos, si.len, si.len );
-      assert( si.k4 == 0 );
-#if 0
-      if( si.k4 != 0 ) {
-        assert( si.k4 == 0xff00 );
-        memcpy(buf, &s, sizeof s);
-        fread(buf+ sizeof s, 1, 4, in);
-        memcpy(&si, buf+ 4, sizeof s);
-        uint32_t debug;
-        memcpy(&debug, buf, 4);
-        printf(" #debug: %08x\n", debug);
-      }
-#endif
-      //printf("  #k1: 0x%08lx #k2: 0x%08x #k3: 0x%04x k4: 0x%04x", si.k1, si.k2, si.len, si.k4 );
-      //printf("  #k11: 0x%04x #k12: 0x%04x #k21: 0x%02x #k22: 0x%04x #k3: %04d", si.k11, si.k12, si.k21 >> 8, si.k22, si.len );
+      fread(&si, 1, sizeof si, in);
 /*
- * #k22: 0x0000
- * #k22: 0x0007
- * #k22: 0x000b
- * #k22: 0x0017
- * #k22: 0x001b
- * #k22: 0x001f
- * #k22: 0xff00
- * #k22: 0xfff0
+ * #tag2: 0x0000
+ * #tag2: 0x0007
+ * #tag2: 0x000b
+ * #tag2: 0x0017
+ * #tag2: 0x001b
+ * #tag2: 0x001f
+ * #tag2: 0xff00
+ * #tag2: 0xfff0
  */
-      assert( si.k22 == 0x0000 // 0
-           || si.k22 == 0x0007 // 7
-           || si.k22 == 0x000b // 11
-           || si.k22 == 0x0017 // 23
-           || si.k22 == 0x001b // 27
-           || si.k22 == 0x001f // 31
-           || si.k22 == 0xff00 // 65280
-           || si.k22 == 0xfff0 // 65520
+      assert( si.tag2 == 0x0000 // 0
+           || si.tag2 == 0x0007 // 7
+           || si.tag2 == 0x000b // 11
+           || si.tag2 == 0x0017 // 23
+           || si.tag2 == 0x001b // 27
+           || si.tag2 == 0x001f // 31
+           || si.tag2 == 0xff00 // 65280
+           || si.tag2 == 0xfff0 // 65520
            );
-      assert( ( si.k21 & 0x00ff ) == 0x0 );
-      const uint8_t type = si.k21 >> 8;
-      printf("  #k11: 0x%04x #k12: 0x%01x #type: 0x%02x #k22: 0x%04x ", si.k11, si.k12, type, si.k22 );
-      assert( si.k12 <= 0x3 );
+      assert( ( si.type & 0x00ff ) == 0x0 );
+      const uint8_t type = si.type >> 8;
+      printf("  #key: 0x%04x #tag1: 0x%01x #type: 0x%02x #tag2: 0x%04x ", si.key, si.tag1, type, si.tag2 );
+      assert( si.tag1 <= 0x3 );
       assert( si.len <= 9184 /* 8192 */ );
       //printf("  #k1: 0x%08lx #k2: 0x%08x", si.k1, si.k2 );
 //      printf("  #Pos: %7ld 0x%08lx #Len:%08u 0x%08x\n", pos, pos, si.len, si.len );
@@ -534,12 +488,14 @@ int main(int argc, char * argv[])
       printf("\n" );
     }
   }
+  //printf("ngroups = %d\n", r);
+  assert( r >= 6 && r <= 8 );
 
   long pos = ftell(in);
-  printf("pos: 0x%08x 0x%08x\n", pos, sz);
+  //printf("pos: 0x%08x 0x%08x\n", pos, sz);
   assert( pos == sz || pos + 1 == sz );
-  int ret = feof(in);
-  printf("feof: %d\n", ret);
+  //int ret = feof(in);
+  //printf("feof: %d\n", ret);
   fclose(in);
   return 0;
 }
