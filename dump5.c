@@ -27,70 +27,77 @@ static void dump2file(const char * in, int len )
 }
 
 enum Type {
-  UNK1          = 0x01, // 55ff ?
-  UNK2          = 0x02, // 
-  WSTRING       = 0x03, // ISO-8859-1 ?
-  UNK4          = 0x04, // 
-  VECT2FLOAT    = 0x05, // float single precision x 2. a806 seems to refers to FOV (700d,1005)
-  VECT3FLOAT    = 0x06, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
-  FLOAT8        = 0x08, // 0x55f9 patient weight / 55f8 Patient height * 100 (in cm)
-  UNKB          = 0x0b, // 
-  DATETIME      = 0x0e, // Date/Time stored as ASCII
-  UNK20         = 0x20, // USAN string ???
-  UNK21         = 0x21, // 3a5e ??
-  UINT16        = 0x22, // 1bc3 contains a 64x64x 16bits icon image (most likely either bytes or ushort)
-  CHARACTER_SET = 0x23, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
-  INT32         = 0x24, // 
-  UNK25         = 0x25, // 
-  FLOAT28       = 0x28, // float single precision. afea ??
-  DOUBLE        = 0x29, // 0x13ec is Imaging Frequency
-  BOOL          = 0x2a, // BOOL stored as INT32 ?
-  STRING        = 0x2c, // ASCII (UTF-8 ?) string
-  UNK31         = 0x31, // 
-  UNK32         = 0x32, // 
-  UNKBA         = 0xba, // 
-  STRING41      = 0xc1, // 6 bytes strings, with 41 padding. 0xa965 ?
-  UNKC2         = 0xc2, // 66 / 396, all multiple of 11 ??
-  UNKD0         = 0xd0,
+  UNK1          = 0x00000100, // 55ff ?
+  UNK2          = 0x00000200, // 
+  WSTRING       = 0x00000300, // ISO-8859-1 ?
+  UNK4          = 0x00000400, // 
+  VECT2FLOAT    = 0x00000500, // float single precision x 2. a806 seems to refers to FOV (700d,1005)
+  VECT3FLOAT    = 0x00000600, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
+  UNKB          = 0x00000b00, // 
+  DATETIME      = 0x00000e00, // Date/Time stored as ASCII
+  UNKD0         = 0x0007d000,
+  UNKB8         = 0x000bb800,
+  UNKB9         = 0x000bb900,
+  UNKBA         = 0x000bba00, // 
+  UNKBB         = 0x000bbb00, // 
+  STRING41      = 0x000bc100, // 6 bytes strings, with 41 padding. 0xa965 ?
+  UNKC2         = 0x000bc200, // 66 / 396, all multiple of 11 ??
+  UNKC3         = 0x000bc300, //
+  FLOAT8        = 0xff000800, // 0x55f9 patient weight / 55f8 Patient height * 100 (in cm)
+  UNK20         = 0xff002000, // USAN string ???
+  UNK21         = 0xff002100, // 3a5e ??
+  UINT16        = 0xff002200, // 1bc3 contains a 64x64x 16bits icon image (most likely either bytes or ushort)
+  CHARACTER_SET = 0xff002300, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
+  INT32         = 0xff002400, // 
+  UNK25         = 0xff002500, // 
+  FLOAT28       = 0xff002800, // float single precision. afea ??
+  DOUBLE        = 0xff002900, // 0x13ec is Imaging Frequency
+  BOOL          = 0xff002a00, // BOOL stored as INT32 ?
+  STRING        = 0xff002c00, // ASCII (UTF-8 ?) string
+  UNK31         = 0xff003100, // 
+  UNK32         = 0xff003200, // 
 #if 0
- #type: 0x01 
- #type: 0x02 
- #type: 0x03 
- #type: 0x04 
- #type: 0x05 
- #type: 0x06 
- #type: 0x08 
- #type: 0x0b 
- #type: 0x0e 
- #type: 0x20 
- #type: 0x21 
- #type: 0x22 
- #type: 0x23 
- #type: 0x24 
- #type: 0x25 
- #type: 0x28 
- #type: 0x29 
- #type: 0x2a 
- #type: 0x2c 
- #type: 0x31 
- #type: 0x32 
- #type: 0x40 
- #type: 0x41 
- #type: 0x43 
- #type: 0x44 
- #type: 0x46 
- #type: 0x5e 
- #type: 0x5f 
- #type: 0x70 
- #type: 0x72 
- #type: 0xb8 
- #type: 0xb9 
- #type: 0xba 
- #type: 0xbb 
- #type: 0xc1 
- #type: 0xc2 
- #type: 0xc3 
- #type: 0xd0 
+00000100  
+00000200  
+00000300  
+00000400  
+00000500  
+00000600  
+00000b00  
+00000e00  
+0007d000  
+000bb800  
+000bb900  
+000bba00  
+000bbb00  
+000bc100  
+000bc200  
+000bc300  
+00177000  
+00177200  
+001b5e00  
+001b5f00  
+001f4000  
+001f4100  
+001f4300  
+001f4400  
+001f4600  
+ff000400  
+ff000800  
+ff002000  
+ff002100  
+ff002200  
+ff002300  
+ff002400  
+ff002500  
+ff002800  
+ff002900  
+ff002a00  
+ff002c00  
+ff003100  
+ff003200  
+fff00200  
+
 #endif
 };
 static bool iszero( float f )
@@ -278,7 +285,7 @@ static const unsigned char usan[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-static void print(int type, char *buffer, int len)
+static void print(uint32_t type, char *buffer, int len)
 {
   switch(type)
   {
@@ -460,7 +467,7 @@ int main(int argc, char * argv[])
  * #tag2: 0xfff0
  */
       assert( ( si.type & 0x00ff ) == 0x0 );
-      const uint8_t type = si.type >> 8;
+      const uint32_t type = si.type ;
       printf("  #key: 0x%08x #type: 0x%08x ", si.key, si.type );
       assert( si.len <= 9184 /* 8192 */ );
       //printf("  #k1: 0x%08lx #k2: 0x%08x", si.k1, si.k2 );
