@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -43,6 +44,16 @@ enum Type {
   STRING41      = 0x000bc100, // 6 bytes strings, with 41 padding. 0xa965 ?
   UNKC2         = 0x000bc200, // 66 / 396, all multiple of 11 ??
   UNKC3         = 0x000bc300, //
+  UNK70         = 0x00177000, //  
+  UNK72         = 0x00177200, //  
+  UNK5E         = 0x001b5e00, //  
+  UNK5F         = 0x001b5f00, //  
+  UNK40         = 0x001f4000, //  
+  UNK41         = 0x001f4100, //  
+  UNK43         = 0x001f4300, //  
+  UNK44         = 0x001f4400, //  multi strings stored ?
+  UNK46         = 0x001f4600, //  
+  BOOL2         = 0xff000400, // Another bool stored as int32 ? 
   FLOAT8        = 0xff000800, // 0x55f9 patient weight / 55f8 Patient height * 100 (in cm)
   UNK20         = 0xff002000, // USAN string ???
   UNK21         = 0xff002100, // 3a5e ??
@@ -56,6 +67,7 @@ enum Type {
   STRING        = 0xff002c00, // ASCII (UTF-8 ?) string
   UNK31         = 0xff003100, // 
   UNK32         = 0xff003200, // 
+  UNKF2         = 0xfff00200, // 
 #if 0
 00000100  
 00000200  
@@ -260,6 +272,65 @@ $ hexdump -C out0000
   }
 }
 
+typedef struct info {
+  char zero1[0x41];
+  char buf2[0x15];
+  char buf3[0x100];
+  char buf4[0x11];
+  char buf5[0x41];
+  char buf6[0x41];
+  uint32_t buf7[6];
+} info;
+static void print_string44( const char * buffer, int len)
+{
+  assert( len == 516 );
+  info i;
+  assert( sizeof i == 516 );
+  //printf( "debug: %d\n", sizeof i );
+  //printf( "debug: 0x%x\n", offsetof(info, buf2) );
+  //printf( "debug: 0x%x\n", offsetof(info, buf3) );
+  //printf( "debug: 0x%x\n", offsetof(info, buf4) );
+  //printf( "debug: 0x%x\n", offsetof(info, buf5) );
+  //printf( "debug: 0x%x\n", offsetof(info, buf6) );
+  //printf( "debug: 0x%x\n", offsetof(info, buf7) );
+  assert( offsetof(info, buf2) == 0x41 );
+  assert( offsetof(info, buf3) == 0x56 );
+  assert( offsetof(info, buf4) == 0x156 );
+  assert( offsetof(info, buf5) == 0x167 );
+  assert( offsetof(info, buf6) == 0x1A8 );
+  assert( offsetof(info, buf7) == 0x1EC );
+  memcpy(&i, buffer, sizeof i);
+  int c;
+  printf(" [");
+  printf("%s,%s,%s,%s,%s", i.buf2, i.buf3, i.buf4, i.buf5, i.buf6);
+  for( c = 0; c < 6; ++c ) {
+    assert( i.buf7[c] == 0x0 || i.buf7[c] == 0x1 );
+    printf(",");
+    printf("%d", i.buf7[c]);
+  }
+  printf("] #%d", len);
+  // remaining stuff should all be 0
+}
+static void print_stringbc3( const char * buffer, int len)
+{
+  assert( len == 100 );
+  uint32_t n;
+  int i;
+  memcpy(&n, buffer, sizeof n);
+  assert( n < 6 );
+  printf(" [");
+  for( i = 0; i < n; ++i ) {
+    if(i) printf(",");
+    const char * str = (buffer+4) + i * 8;
+    assert( str[3] == 0x0 );
+    assert( str[4] == 0x41 || str[4] == 0x43 );
+    const int c = str[5];
+    printf("%.*s#%c%d", 3, str, str[4], c);
+  }
+  printf("] #%d", len);
+  // remaining stuff should all be 0
+}
+
 static void print_string41( const char * buffer, int len)
 {
   assert( len % 6 == 0 );
@@ -267,7 +338,7 @@ static void print_string41( const char * buffer, int len)
   int i;
   printf(" [");
   for( i = 0; i < n; ++i ) {
-      if(i) printf(",");
+    if(i) printf(",");
     const char * str = buffer + i * 6;
     assert( str[3] == 0x0 );
     const int c = str[4];
@@ -297,9 +368,31 @@ static void print(uint32_t type, char *buffer, int len)
       //print_hex( buffer, len);
       break;
     case UNK2:
-      assert( len % 4 == 0 );
+      assert( len == 36 );
       //print_float( (float*)buffer, len);
-      print_uint16( (uint16_t*)buffer, len);
+      print_int32( (uint32_t*)buffer, len);
+      //print_uint16( (uint16_t*)buffer, len);
+      //print_hex( buffer, len);
+      break;
+    case UNK44:
+      assert( len == 516 );
+      dump2file(buffer, len);
+      //print_hex( buffer, len);
+      print_string44(buffer, len);
+      break;
+    case UNKC3:
+      assert( len == 100 );
+      //dump2file(buffer, len);
+      //print_uint16( (uint16_t*)buffer, len);
+      //print_int32( (int32_t*)buffer, len);
+      //print_uint32( (uint32_t*)buffer, len);
+      //print_hex( buffer, len);
+      print_stringbc3(buffer, len);
+      break;
+    case UNKF2:
+      assert( len % 4 == 0 );
+      //print_uint16( (uint16_t*)buffer, len);
+      print_int32( (int32_t*)buffer, len);
       //print_uint32( (uint32_t*)buffer, len);
       //print_hex( buffer, len);
       break;
@@ -312,8 +405,9 @@ static void print(uint32_t type, char *buffer, int len)
       print_float( (float*)buffer, len);
       break;
     case UNK4:
-      assert( len % 4 == 0 );
-      print_uint32( (uint32_t*)buffer, len);
+      assert( len % 8 == 0 ); // pair of int32 ?
+      //print_uint64( (uint64_t*)buffer, len);
+      print_int32( (int32_t*)buffer, len);
       break;
     case UNKB:
       assert( len == 12 ); // int32 x 3 ?
@@ -336,9 +430,9 @@ static void print(uint32_t type, char *buffer, int len)
       break;
     case UNK21:
       assert( len == 20 || len == 16 || len == 24 );
-      print_float( (float*)buffer, len);
+      //print_float( (float*)buffer, len);
       print_int32( (int32_t*)buffer, len);
-      print_hex( buffer, len);
+      //print_hex( buffer, len);
       break;
     case UINT16:
       print_uint16( (uint16_t*)buffer, len);
@@ -364,8 +458,9 @@ static void print(uint32_t type, char *buffer, int len)
       assert( len % 4 == 0 ); // all uint are lower than uin16_max
       print_uint32( (uint32_t*)buffer, len);
       break;
+    case BOOL2:
     case BOOL:
-      assert( len % 4 == 0 ); // bool ?
+      assert( len == 4 ); // bool ?
       print_uint32( (uint32_t*)buffer, len);
       break;
     case DOUBLE:
@@ -373,8 +468,9 @@ static void print(uint32_t type, char *buffer, int len)
       print_double( (double*)buffer, len);
       break;
     case UNKD0:
-      print_uint64( (uint64_t*)buffer, len);
-      print_hex( buffer, len);
+      print_uint32( (uint32_t*)buffer, len);
+      //print_uint64( (uint64_t*)buffer, len);
+      //print_hex( buffer, len);
       break;
     case FLOAT28:
       assert( len % 4 == 0 );
