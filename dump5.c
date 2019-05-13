@@ -50,7 +50,7 @@ enum Type {
   UNK5F         = 0x001b5f00, // USAN string
   UNK40         = 0x001f4000, //  
   UNK41         = 0x001f4100, //  
-  UNK43         = 0x001f4300, //  
+  UNK43         = 0x001f4300, //  multi string stored ?
   UNK44         = 0x001f4400, //  multi strings stored ?
   UNK46         = 0x001f4600, //  
   BOOL2         = 0xff000400, // Another bool stored as int32 ? 
@@ -158,6 +158,19 @@ static void print_double( const double * buffer, int len)
   }
   printf("] #%d", len);
 }
+static void print_uint8( const uint8_t * buffer, int len)
+{
+  const int  m = sizeof(uint8_t);
+  assert( len % m == 0 );
+  int i;
+  printf(" [");
+  for (i=0;i < len / m; i++) {
+      if(i) printf(",");
+      const uint16_t cur = buffer[i];
+      printf("%d", cur);
+  }
+  printf("] #%d", len);
+}
 static void print_uint16( const uint16_t * buffer, int len)
 {
   const int  m = sizeof(uint16_t);
@@ -167,6 +180,19 @@ static void print_uint16( const uint16_t * buffer, int len)
   for (i=0;i < len / m; i++) {
       if(i) printf(",");
       const uint16_t cur = buffer[i];
+      printf("%d", cur);
+  }
+  printf("] #%d", len);
+}
+static void print_int16( const int16_t * buffer, int len)
+{
+  const int  m = sizeof(int16_t);
+  assert( len % m == 0 );
+  int i;
+  printf(" [");
+  for (i=0;i < len / m; i++) {
+      if(i) printf(",");
+      const int16_t cur = buffer[i];
       printf("%d", cur);
   }
   printf("] #%d", len);
@@ -324,6 +350,45 @@ $ hexdump -C out0000
   }
 }
 
+typedef struct info43 {
+  uint32_t zero;
+  char buf2[0x45];
+  char buf3[0x100];
+  char buf4[0x41];
+  char buf5[0x11];
+  char buf6[0x15];
+  uint32_t val;
+} info43;
+static void print_string43( const char * buffer, int len)
+{
+  assert( len == 436 );
+  info43 i;
+  //printf( "debug: %d\n", sizeof i );
+  //printf( "debug: 0x%x\n", offsetof(info43, buf2) );
+  //printf( "debug: 0x%x\n", offsetof(info43, buf3) );
+  //printf( "debug: 0x%x\n", offsetof(info43, buf4) );
+  //printf( "debug: 0x%x\n", offsetof(info43, buf5) );
+  //printf( "debug: 0x%x\n", offsetof(info43, buf6) );
+  assert( sizeof i == 436 );
+  assert( offsetof(info43, buf2) == 0x4 );
+  assert( offsetof(info43, buf3) == 0x49 );
+  assert( offsetof(info43, buf4) == 0x149 );
+  assert( offsetof(info43, buf5) == 0x18A );
+  assert( offsetof(info43, buf6) == 0x19b );
+  memcpy(&i, buffer, sizeof i);
+  int c;
+  printf(" [");
+  printf("%u", i.zero);
+  printf(",%s,%s,%s,%s,%s,", i.buf2, i.buf3, i.buf4, i.buf5, i.buf6);
+  printf("%u", i.val);
+  //for( c = 0; c < 6; ++c ) {
+  //  assert( i.buf7[c] == 0x0 || i.buf7[c] == 0x1 );
+  //  printf(",");
+  //  printf("%d", i.buf7[c]);
+  //}
+  printf("] #%d", len);
+  // remaining stuff should all be 0
+}
 typedef struct info {
   char zero1[0x41];
   char buf2[0x15];
@@ -439,6 +504,10 @@ static void print(uint32_t type, char *buffer, int len)
       //print_uint16( (uint16_t*)buffer, len);
       //print_hex( buffer, len);
       break;
+    case UNK43:
+      assert( len == 436);
+      print_string43(buffer, len);
+      break;
     case UNK44:
       assert( len == 516 );
       //dump2file(buffer, len);
@@ -453,6 +522,21 @@ static void print(uint32_t type, char *buffer, int len)
       //print_uint32( (uint32_t*)buffer, len);
       //print_hex( buffer, len);
       print_stringbc3(buffer, len);
+      break;
+    case UNKBB:
+      assert ( len == 68 );
+      //dump2file(buffer, len);
+      //print_uint32( (uint32_t*)buffer, len);
+//      print_int16( (uint32_t*)buffer, len);
+      print_uint8( (uint32_t*)buffer, len);
+//      print_uint16( (uint32_t*)buffer, len);
+      //print_uint64( (uint32_t*)buffer+4, len - 4);
+      //print_float( (uint32_t*)buffer, len);
+      //print_hex( buffer, len);
+      break;
+    case UNK70:
+      assert ( len == 24 );
+      print_uint32( (uint32_t*)buffer, len);
       break;
     case UNK46:
       assert( len == 325 );
