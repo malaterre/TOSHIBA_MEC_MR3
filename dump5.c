@@ -46,8 +46,8 @@ enum Type {
   UNKC3         = 0x000bc300, //
   UNK70         = 0x00177000, //  
   UNK72         = 0x00177200, //  
-  UNK5E         = 0x001b5e00, //  
-  UNK5F         = 0x001b5f00, //  
+  UNK5E         = 0x001b5e00, // USAN string
+  UNK5F         = 0x001b5f00, // USAN string
   UNK40         = 0x001f4000, //  
   UNK41         = 0x001f4100, //  
   UNK43         = 0x001f4300, //  
@@ -123,6 +123,7 @@ static bool iszero( float f )
 //  if( f == 0.0 ) assert( b == 0 );
   return true;
 }
+
 
 static void print_float( const float * buffer, int len)
 {
@@ -233,6 +234,57 @@ static void print_hex( const unsigned char * buffer, int len)
   }
   printf("] #%d", len);
 }
+static void print_usan( const char * buffer, int len)
+{
+  const char sig[] = { 0x55, 0x53 , 0x41 , 0x4e , 0x00 , 0x50 , 0x03 , 0x00 };
+  int b = memcmp( buffer, sig, sizeof sig);
+  assert( b == 0 );
+  printf(" [<?USAN:");
+  if( len == 48 ) {
+    // UNK5E
+  //  00000000  55 53 41 4e 00 50 03 00  00 00 00 00 00 00 00 00  |USAN.P..........|
+  //  00000010  00 00 00 00 00 00 00 00  00 00 00 00 00 00 59 40  |..............Y@|
+  //  00000020  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+  //print_uint32( buffer + 8, len - 8 );
+  //print_float( buffer + 8, len - 8 );
+unsigned char sig5e[] = { 0x55, 0x53, 0x41, 0x4e, 0x00, 0x50, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  b = memcmp( buffer, sig5e, sizeof sig5e);
+  assert( b == 0 );
+
+  print_double( buffer + sizeof sig5e, len - sizeof sig5e );
+
+  } else if( len == 60 ) {
+    // UNK5F
+unsigned char sig5f[] = { 0x55, 0x53, 0x41, 0x4e, 0x00, 0x50, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00};
+  b = memcmp( buffer, sig5f, sizeof sig5f);
+  assert( b == 0 );
+  // 00000000  55 53 41 4e 00 50 03 00  01 00 00 00 28 00 00 00  |USAN.P......(...|
+  // 00000010  4e 4c 54 4c 61 8e 1e bf  b7 09 4c 40 aa 62 2a fd  |NLTLa.....L@.b*.|
+  // 00000020  84 f3 44 40 00 00 00 00  00 00 00 00 00 00 00 00  |..D@............|
+  // 00000030  00 00 00 00 00 00 00 00  00 00 00 00              |............|
+
+  print_double( buffer + sizeof sig5f + 4 /* NLTL */, len - sizeof sig5f - 4 );
+
+  } else if( len == 68 ) {
+    // UNK20
+unsigned char sig20[] = { 0x55, 0x53, 0x41, 0x4e, 0x00, 0x50, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x4e, 0x4b, 0x4e, 0x55};
+  b = memcmp( buffer, sig20, sizeof sig20);
+  assert( b == 0 );
+//  00000000  55 53 41 4e 00 50 03 00  01 00 00 00 4e 4b 4e 55  |USAN.P......NKNU|
+//  00000010  00 00 00 00 00 00 00 00  02 00 00 00 00 00 00 00  |................|
+//  00000020  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
+//  00000030  00 00 00 00 01 00 00 00  00 00 59 40 00 00 00 00  |..........Y@....|
+//  00000040  00 00 00 00                                       |....|
+  //print_double( buffer + sizeof sig20 + 4 , len - sizeof sig20 - 4 );
+  //print_float( buffer + sizeof sig20 + 4 , len - sizeof sig20 - 4 );
+  //print_uint32( buffer + sizeof sig20 + 4 , len - sizeof sig20 - 4 );
+  //print_int64( buffer + sizeof sig20 + 4 , len - sizeof sig20 - 4 );
+  print_int32( buffer + sizeof sig20 + 4 , len - sizeof sig20 - 4 );
+
+  }
+  
+  printf("FIXME?>] #%d", len);
+}
 
 static void print_string( const char * buffer, int len)
 {
@@ -311,6 +363,19 @@ static void print_string44( const char * buffer, int len)
   printf("] #%d", len);
   // remaining stuff should all be 0
 }
+static void print_string46( const char * buffer, int len)
+{
+  assert ( len == 325 ); // 65 * 5 
+  int i;
+  printf(" [", len, buffer, len, strnlen(buffer, len));
+  for( i = 0; i < 5; ++i ) {
+    const char * str = buffer + i * 65;
+      if(i) printf(",");
+  printf("%.*s", 65, str );
+  }
+  printf("] #%d", len, buffer, len, strnlen(buffer, len));
+}
+
 static void print_stringbc3( const char * buffer, int len)
 {
   assert( len == 100 );
@@ -376,7 +441,7 @@ static void print(uint32_t type, char *buffer, int len)
       break;
     case UNK44:
       assert( len == 516 );
-      dump2file(buffer, len);
+      //dump2file(buffer, len);
       //print_hex( buffer, len);
       print_string44(buffer, len);
       break;
@@ -388,6 +453,12 @@ static void print(uint32_t type, char *buffer, int len)
       //print_uint32( (uint32_t*)buffer, len);
       //print_hex( buffer, len);
       print_stringbc3(buffer, len);
+      break;
+    case UNK46:
+      assert( len == 325 );
+      //dump2file(buffer, len);
+      //print_hex( buffer, len);
+      print_string46(buffer,len);
       break;
     case UNKF2:
       assert( len % 4 == 0 );
@@ -422,11 +493,14 @@ static void print(uint32_t type, char *buffer, int len)
       print_float( (float*)buffer, len);
       break;
     case UNK20:
-      assert( len == 68 );
+    case UNK5E:
+    case UNK5F:
+      assert( len == 48 || len == 60 || len == 68 );
       //assert( sizeof(usan) == 68 );
       //assert( memcmp(buffer, usan, sizeof(usan) ) == 0 );
       //dump2file(buffer, len);
-      print_hex(buffer, len);
+      print_usan(buffer, len);
+      //print_hex(buffer, len);
       break;
     case UNK21:
       assert( len == 20 || len == 16 || len == 24 );
