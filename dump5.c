@@ -42,21 +42,21 @@ enum Type {
   UNKB9         = 0x000bb900,
   UNKBA         = 0x000bba00, // 
   UNKBB         = 0x000bbb00, // 
-  STRING41      = 0x000bc100, // 6 bytes strings, with 41 padding. 0xa965 ?
+  STRC1         = 0x000bc100, // 6 bytes strings, with 41 padding. 0xa965 ?
   UNKC2         = 0x000bc200, // 66 / 396, all multiple of 11 ??
-  UNKC3         = 0x000bc300, //
+  STRC3         = 0x000bc300, //
   UNK70         = 0x00177000, //  
   UNK72         = 0x00177200, //  
-  UNK5E         = 0x001b5e00, // USAN string
-  UNK5F         = 0x001b5f00, // USAN string
+  USAN5E        = 0x001b5e00, // USAN string
+  USAN5F        = 0x001b5f00, // USAN string
   STR40         = 0x001f4000, // strings ?
-  UID41         = 0x001f4100, //  zero + UID
-  UNK43         = 0x001f4300, //  multi string stored ?
-  UNK44         = 0x001f4400, //  multi strings stored ?
-  UNK46         = 0x001f4600, //  
+  UID41         = 0x001f4100, // zero + UID
+  STR43         = 0x001f4300, // multi string stored ?
+  STR44         = 0x001f4400, // multi strings stored ?
+  STR46         = 0x001f4600, // Str64 x 5;
   BOOL2         = 0xff000400, // Another bool stored as int32 ? 
   FLOAT8        = 0xff000800, // 0x55f9 patient weight / 55f8 Patient height * 100 (in cm)
-  UNK20         = 0xff002000, // USAN string ???
+  USAN20        = 0xff002000, // USAN string ???
   UNK21         = 0xff002100, // 3a5e ??
   UINT16        = 0xff002200, // 1bc3 contains a 64x64x 16bits icon image (most likely either bytes or ushort)
   CHARACTER_SET = 0xff002300, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
@@ -213,7 +213,7 @@ static void print_usan( const char * buffer, int len)
   assert( b == 0 );
   printf(" [<?USAN:");
   if( len == 48 ) {
-    // UNK5E
+    // USAN5E
   //  00000000  55 53 41 4e 00 50 03 00  00 00 00 00 00 00 00 00  |USAN.P..........|
   //  00000010  00 00 00 00 00 00 00 00  00 00 00 00 00 00 59 40  |..............Y@|
   //  00000020  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
@@ -226,7 +226,7 @@ unsigned char sig5e[] = { 0x55, 0x53, 0x41, 0x4e, 0x00, 0x50, 0x03, 0x00, 0x00, 
   print_double( buffer + sizeof sig5e, len - sizeof sig5e );
 
   } else if( len == 60 ) {
-    // UNK5F
+    // USAN5F
 unsigned char sig5f[] = { 0x55, 0x53, 0x41, 0x4e, 0x00, 0x50, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00};
   b = memcmp( buffer, sig5f, sizeof sig5f);
   assert( b == 0 );
@@ -238,7 +238,7 @@ unsigned char sig5f[] = { 0x55, 0x53, 0x41, 0x4e, 0x00, 0x50, 0x03, 0x00, 0x01, 
   print_double( buffer + sizeof sig5f + 4 /* NLTL */, len - sizeof sig5f - 4 );
 
   } else if( len == 68 ) {
-    // UNK20
+    // USAN20
 unsigned char sig20[] = { 0x55, 0x53, 0x41, 0x4e, 0x00, 0x50, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x4e, 0x4b, 0x4e, 0x55};
   b = memcmp( buffer, sig20, sizeof sig20);
   assert( b == 0 );
@@ -281,8 +281,6 @@ $ hexdump -C out0000
     const char * iso = (char*)buffer + 7;
     const int diff = len - (7 + 9 + 3);
     const char * next = buffer + 7 + 9 + 3;
-    //dump2file( buffer, len );
-    //assert(0);
     int len2 = (unsigned char)buffer[3];
     int len3 = (unsigned char)buffer[5];
     int len4 = (unsigned char)buffer[17];
@@ -296,13 +294,19 @@ $ hexdump -C out0000
   }
 }
 
+// DICOM reference oftne a string with 16/64 bytes (store the trailing 0)
+typedef char str16[16+1];
+typedef char str64[64+1];
+
+// [0,TM_MR_DCM_V1.0,Abcdefg Hijklm   ,MRI LOWER EXTREMITY JOINT WITHOUT CONTRAST - KNEE,1234567,MR,1]
+// [0,TM_MR_DCM_V2.0,,,TM_MR_DCM_V2.0,MR,3]
 typedef struct info43 {
   uint32_t zero;
-  char buf2[0x45];
+  char iver[0x45]; // implementation version
   char buf3[0x100];
-  char buf4[0x41];
-  char buf5[0x11];
-  char buf6[0x15];
+  str64 buf4;
+  str16 buf5;
+  char modality[0x15];
   uint32_t val;
 } info43;
 static void print_string43( const char * buffer, int len)
@@ -316,33 +320,34 @@ static void print_string43( const char * buffer, int len)
   //printf( "debug: 0x%x\n", offsetof(info43, buf5) );
   //printf( "debug: 0x%x\n", offsetof(info43, buf6) );
   assert( sizeof i == 436 );
-  assert( offsetof(info43, buf2) == 0x4 );
+  assert( offsetof(info43, iver) == 0x4 );
   assert( offsetof(info43, buf3) == 0x49 );
   assert( offsetof(info43, buf4) == 0x149 );
   assert( offsetof(info43, buf5) == 0x18A );
-  assert( offsetof(info43, buf6) == 0x19b );
+  assert( offsetof(info43, modality) == 0x19b );
   memcpy(&i, buffer, sizeof i);
-  int c;
   printf(" [");
   printf("%u", i.zero);
-  printf(",%s,%s,%s,%s,%s,", i.buf2, i.buf3, i.buf4, i.buf5, i.buf6);
+  static const char vers1[] = "TM_MR_DCM_V1.0";
+  static const char vers2[] = "TM_MR_DCM_V2.0";
+  assert( strcmp(i.iver, vers1) == 0 || strcmp(i.iver, vers2) == 0 );
+  assert( strcmp(i.modality, "MR") == 0 );
+  printf(",%s,%s,%s,%s,%s,", i.iver, i.buf3, i.buf4, i.buf5, i.modality);
+  assert( i.val == 1 || i.val == 3 );
   printf("%u", i.val);
-  //for( c = 0; c < 6; ++c ) {
-  //  assert( i.buf7[c] == 0x0 || i.buf7[c] == 0x1 );
-  //  printf(",");
-  //  printf("%d", i.buf7[c]);
-  //}
   printf("] #%d", len);
   // remaining stuff should all be 0
 }
+
+// [12345678,Abcdefg Hijklm   ,12345678,1.2.840.113745.100000.1000000.10000.1000.10000000,MRI LOWER EXTREMITY JOINT WITHOUT CONTRAST - HIP,0,1,0,1,0,1]
 typedef struct info {
-  char zero1[0x41];
+  str64 zero; // all zero
   char buf2[0x15];
   char buf3[0x100];
-  char buf4[0x11];
-  char buf5[0x41];
-  char buf6[0x41];
-  uint32_t buf7[6];
+  str16 buf4;
+  str64 buf5;
+  str64 buf6;
+  uint32_t bools[6];
 } info;
 static void print_string44( const char * buffer, int len)
 {
@@ -361,23 +366,24 @@ static void print_string44( const char * buffer, int len)
   assert( offsetof(info, buf4) == 0x156 );
   assert( offsetof(info, buf5) == 0x167 );
   assert( offsetof(info, buf6) == 0x1A8 );
-  assert( offsetof(info, buf7) == 0x1EC );
+  assert( offsetof(info, bools) == 0x1EC );
   memcpy(&i, buffer, sizeof i);
   int c;
   printf(" [");
   printf("%s,%s,%s,%s,%s", i.buf2, i.buf3, i.buf4, i.buf5, i.buf6);
   for( c = 0; c < 6; ++c ) {
-    assert( i.buf7[c] == 0x0 || i.buf7[c] == 0x1 );
+    assert( i.bools[c] == c % 2 );
     printf(",");
-    printf("%d", i.buf7[c]);
+    printf("%d", i.bools[c]);
   }
   printf("] #%d", len);
   // remaining stuff should all be 0
 }
+
 typedef struct uid41 {
   uint32_t zero;
-  char uid1[0x41]; // Detached Study Management SOP Class (1.2.840.10008.3.1.2.3.1) ?
-  char uid2[0x41]; // 1.2.840.113745.101000.1098000.X.Y.Z
+  str64 uid1; // Detached Study Management SOP Class (1.2.840.10008.3.1.2.3.1) ?
+  str64 uid2; // 1.2.840.113745.101000.1098000.X.Y.Z
   uint16_t zero2;
 } uid41;
 static void print_uid41( const char * buffer, int len)
@@ -387,6 +393,8 @@ static void print_uid41( const char * buffer, int len)
   assert( sizeof i == 136 );
   memcpy(&i, buffer, sizeof i);
   assert( i.zero == 0 );
+  assert( strnlen(i.uid1, sizeof i.uid1) <= 64 );
+  assert( strnlen(i.uid2, sizeof i.uid2) <= 64 );
   assert( i.zero2 == 0 );
   printf(" [%u,%.*s,%.*s] #%d", i.zero, sizeof i.uid1, i.uid1, sizeof i.uid2, i.uid2, len);
 }
@@ -418,12 +426,14 @@ static void print_string40( const char * buffer, int len)
 static void print_string46(const char * buffer, int len)
 {
   assert ( len == 325 ); // 65 * 5 
+  str64 array5[5];
+  assert( sizeof array5 == 325 );
+  memcpy(array5, buffer, sizeof array5);
   int i;
   printf(" [");
   for( i = 0; i < 5; ++i ) {
-    const char * str = buffer + i * 65;
     if(i) printf(",");
-    printf("%.*s", 65, str );
+    printf("%.*s", sizeof array5[i], array5[i] );
   }
   printf("] #%d", len);
 }
@@ -448,7 +458,7 @@ static void print_stringbc3( const char * buffer, int len)
   // remaining stuff should all be 0
 }
 
-static void print_string41( const char * buffer, int len)
+static void print_stringC1( const char * buffer, int len)
 {
   assert( len % 6 == 0 );
   const int n = len / 6;
@@ -464,6 +474,7 @@ static void print_string41( const char * buffer, int len)
   }
   printf("] #%d", len);
 }
+
 static const unsigned char usan[] = {
   0x55, 0x53, 0x41, 0x4e, 0x00, 0x50, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00,
   0x4e, 0x4b, 0x4e, 0x55, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -501,9 +512,8 @@ static void print(uint32_t type, char *buffer, int len)
       break;
     case UNKB9:
       assert( len == 24 );
-// only zero ?
+      // only zero ?
       print_uint64( (uint16_t*)buffer, len);
-      //print_hex( buffer, len);
       break;
     case UNKB8:
       assert( len == 36);
@@ -536,28 +546,20 @@ unsigned char out0000[] = {
       //print_float( (uint32_t*)buffer, len);
       //print_hex( buffer, len);
       break;
-    case UNK43:
+    case STR43:
       assert( len == 436);
       print_string43(buffer, len);
       break;
     case CHARACTER_SET:
-      //dump2file(buffer, len);
-      //print_hex( buffer, len);
-  printf(" [?CHARACTER_SET?] #%d", len);
+      dump2file(buffer, len);
+      printf(" [?CHARACTER_SET?] #%d", len);
       break;
-    case UNK44:
+    case STR44:
       assert( len == 516 );
-      //dump2file(buffer, len);
-      //print_hex( buffer, len);
       print_string44(buffer, len);
       break;
-    case UNKC3:
+    case STRC3:
       assert( len == 100 );
-      //dump2file(buffer, len);
-      //print_uint16( (uint16_t*)buffer, len);
-      //print_int32( (int32_t*)buffer, len);
-      //print_uint32( (uint32_t*)buffer, len);
-      //print_hex( buffer, len);
       print_stringbc3(buffer, len);
       break;
     case UNKBB:
@@ -575,18 +577,13 @@ unsigned char out0000[] = {
       assert ( len == 24 );
       print_uint32( (uint32_t*)buffer, len);
       break;
-    case UNK46:
+    case STR46:
       assert( len == 325 );
-      //dump2file(buffer, len);
-      //print_hex( buffer, len);
       print_string46(buffer,len);
       break;
     case UNKF2:
       assert( len % 4 == 0 );
-      //print_uint16( (uint16_t*)buffer, len);
       print_int32( (int32_t*)buffer, len);
-      //print_uint32( (uint32_t*)buffer, len);
-      //print_hex( buffer, len);
       break;
     case VECT2FLOAT:
       assert( len == 8 );
@@ -598,7 +595,6 @@ unsigned char out0000[] = {
       break;
     case UNK4:
       assert( len % 8 == 0 ); // pair of int32 ?
-      //print_uint64( (uint64_t*)buffer, len);
       print_int32( (int32_t*)buffer, len);
       break;
     case UNKB:
@@ -607,11 +603,7 @@ unsigned char out0000[] = {
       break;
     case UNKF:
       assert( len == 156 ); // 
-      //dump2file( (int32_t*)buffer, len);
-      //print_float( buffer, len);
       print_int32( buffer, len);
-      //print_int32( buffer, len);
-      //print_hex( (int32_t*)buffer, len);
       break;
     case DATETIME:
       assert( len == 19 || len == 20 );
@@ -621,21 +613,15 @@ unsigned char out0000[] = {
       assert( len == 4 );
       print_float( (float*)buffer, len);
       break;
-    case UNK20:
-    case UNK5E:
-    case UNK5F:
+    case USAN20:
+    case USAN5E:
+    case USAN5F:
       assert( len == 48 || len == 60 || len == 68 );
-      //assert( sizeof(usan) == 68 );
-      //assert( memcmp(buffer, usan, sizeof(usan) ) == 0 );
-      //dump2file(buffer, len);
       print_usan(buffer, len);
-      //print_hex(buffer, len);
       break;
     case UNK21:
       assert( len == 20 || len == 16 || len == 24 );
-      //print_float( (float*)buffer, len);
       print_int32( (int32_t*)buffer, len);
-      //print_hex( buffer, len);
       break;
     case UINT16:
       print_uint16( (uint16_t*)buffer, len);
@@ -682,33 +668,20 @@ unsigned char out0000[] = {
     case WSTRING:
       print_wstring( buffer, len);
       break;
-    case STRING41:
-      print_string41( buffer, len);
+    case STRC1:
+      print_stringC1( buffer, len);
       break;
     case UNKC2:
-{
-      //dump2file(buffer, len);
-      assert( len % 11 == 0 ); // 264    330    396    462    528    66    
-      int mult = len / 11;
-      assert( mult % 6 == 0 );
+      assert( len % 11 == 0 && len % 6 == 0 ); // 264    330    396    462    528    66    
       print_uint16( (uint16_t*)buffer, len);
-      //dump2file(buffer, len );
-      //print_hex( buffer, len);
-}
       break;
     case STRING:
-{
       //if( len % 2 == 0 ) assert( buffer[len-1] == 0 );
       //b3d5 does not seems to contains a trailing NULL
-      //size_t sl = strnlen(buffer, len);
-      //printf(" [%.*s] #%d (%d)", len, buffer, len, strnlen(buffer, len));
       print_string( buffer, len );
-      //printf(" [%s]", buffer);
-}
       break;
     default:
-      //printf(" [??] #%d", len);
- assert(0);
+      assert(0);
       print_hex( buffer, len);
   }
 }
