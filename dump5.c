@@ -31,11 +31,12 @@ enum Type {
   UNK1          = 0x00000100, // 55ff ?
   UNK2          = 0x00000200, // 
   WSTRING       = 0x00000300, // ISO-8859-1 ?
-  UNK4          = 0x00000400, // 
+  UNK4          = 0x00000400, // VM1_n
   VECT2FLOAT    = 0x00000500, // float single precision x 2. a806 seems to refers to FOV (700d,1005)
   VECT3FLOAT    = 0x00000600, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
   UNKB          = 0x00000b00, // 
   DATETIME      = 0x00000e00, // Date/Time stored as ASCII
+  UNKF          = 0x00000f00, // 
   UNKD0         = 0x0007d000,
   UNKB8         = 0x000bb800,
   UNKB9         = 0x000bb900,
@@ -48,8 +49,8 @@ enum Type {
   UNK72         = 0x00177200, //  
   UNK5E         = 0x001b5e00, // USAN string
   UNK5F         = 0x001b5f00, // USAN string
-  UNK40         = 0x001f4000, //  
-  UNK41         = 0x001f4100, //  zero + UID
+  STR40         = 0x001f4000, // strings ?
+  UID41         = 0x001f4100, //  zero + UID
   UNK43         = 0x001f4300, //  multi string stored ?
   UNK44         = 0x001f4400, //  multi strings stored ?
   UNK46         = 0x001f4600, //  
@@ -61,68 +62,14 @@ enum Type {
   CHARACTER_SET = 0xff002300, // 17f2 seems to store the character set used / to use ? Stored as UTF-16 ?
   INT32         = 0xff002400, // 
   UNK25         = 0xff002500, // 
-  FLOAT28       = 0xff002800, // float single precision. afea ??
+  FLOAT28       = 0xff002800, // float single precision. afea ?? VM1_n
   DOUBLE        = 0xff002900, // 0x13ec is Imaging Frequency
   BOOL          = 0xff002a00, // BOOL stored as INT32 ?
   STRING        = 0xff002c00, // ASCII (UTF-8 ?) string
   UNK31         = 0xff003100, // 
   UNK32         = 0xff003200, // 
   UNKF2         = 0xfff00200, // 
-#if 0
-0x00000100 
-0x00000200 
-0x00000300 
-0x00000400 
-0x00000500 
-0x00000600 
-0x00000b00 
-0x00000e00 
-0x0007d000 
-0x000bb800 
-0x000bb900 
-0x000bba00 
-0x000bbb00 
-0x000bc100 
-0x000bc200 
-0x000bc300 
-0x00177000 
-0x00177200 
-0x001b5e00 
-0x001b5f00 
-0x001f4000 
-0x001f4100 
-0x001f4300 
-0x001f4400 
-0x001f4600 
-0xff000400 
-0xff000800 
-0xff002000 
-0xff002100 
-0xff002200 
-0xff002300 
-0xff002400 
-0xff002500 
-0xff002800 
-0xff002900 
-0xff002a00 
-0xff002c00 
-0xff003100 
-0xff003200 
-0xfff00200 
-#endif
 };
-static bool iszero( float f )
-{
-  char buf0[4];
-  char buf1[4];
-  float zero = 0;
-  memcpy( buf0, &zero, sizeof zero );
-  memcpy( buf1, &f, sizeof f );
-  int b = memcmp( buf0, buf1, 4 );
-//  if( f == 0.0 ) assert( b == 0 );
-  return true;
-}
-
 
 static void print_float( const float * buffer, int len)
 {
@@ -138,7 +85,7 @@ static void print_float( const float * buffer, int len)
       float cur = -1;
       memcpy( &cur, buffer+i, sizeof cur);
 #endif
-      assert( iszero(cur) && isfinite(cur) && !isnan(cur) );
+      assert( isfinite(cur) && !isnan(cur) );
       printf("%f", cur);
   }
   printf("] #%d", len);
@@ -429,8 +376,9 @@ static void print_string44( const char * buffer, int len)
 }
 typedef struct uid41 {
   uint32_t zero;
-  char buffer1[0x41];
-  char buffer2[0x43];
+  char uid1[0x41]; // Detached Study Management SOP Class (1.2.840.10008.3.1.2.3.1) ?
+  char uid2[0x41]; // 1.2.840.113745.101000.1098000.X.Y.Z
+  uint16_t zero2;
 } uid41;
 static void print_uid41( const char * buffer, int len)
 {
@@ -438,7 +386,9 @@ static void print_uid41( const char * buffer, int len)
   uid41 i;
   assert( sizeof i == 136 );
   memcpy(&i, buffer, sizeof i);
-  printf(" [%d,%.*s,%.*s] #%d", i.zero, sizeof i.buffer1, i.buffer1, sizeof i.buffer2, i.buffer2, len);
+  assert( i.zero == 0 );
+  assert( i.zero2 == 0 );
+  printf(" [%u,%.*s,%.*s] #%d", i.zero, sizeof i.uid1, i.uid1, sizeof i.uid2, i.uid2, len);
 }
 typedef struct str40 {
   uint32_t zero;
@@ -447,7 +397,6 @@ typedef struct str40 {
 static void print_string40( const char * buffer, int len)
 {
   assert( len % 340 == 0  );
-  //assert( sizeof(str40) == 340 );
   printf(" [");
   int j;
   for( j = 0; j < len / 340; ++j ) {
@@ -464,20 +413,19 @@ static void print_string40( const char * buffer, int len)
     printf("}" );
   }
   printf("] #%d", len);
-
 }
 
-static void print_string46( const char * buffer, int len)
+static void print_string46(const char * buffer, int len)
 {
   assert ( len == 325 ); // 65 * 5 
   int i;
-  printf(" [", len, buffer, len, strnlen(buffer, len));
+  printf(" [");
   for( i = 0; i < 5; ++i ) {
     const char * str = buffer + i * 65;
-      if(i) printf(",");
-  printf("%.*s", 65, str );
+    if(i) printf(",");
+    printf("%.*s", 65, str );
   }
-  printf("] #%d", len, buffer, len, strnlen(buffer, len));
+  printf("] #%d", len);
 }
 
 static void print_stringbc3( const char * buffer, int len)
@@ -536,21 +484,12 @@ static void print(uint32_t type, char *buffer, int len)
       //print_uint16( (uint16_t*)buffer, len);
       //print_hex( buffer, len);
       break;
-    case UNK40:
-assert( len == 1020 || len == 340 );
-      //dump2file( buffer, len);
-      //print_uint64( (uint32_t*)buffer, len);
-      //print_uint16( (uint16_t*)buffer, len);
-      //print_hex( buffer, len);
-      //print_uid41( buffer, len);
+    case STR40:
+      assert( len == 1020 || len == 340 );
       print_string40( buffer, len);
       break;
-    case UNK41:
+    case UID41:
       assert( len == 136 );
-      //dump2file( (float*)buffer, len);
-      //print_uint64( (uint32_t*)buffer, len);
-      //print_uint16( (uint16_t*)buffer, len);
-      //print_hex( buffer, len);
       print_uid41( buffer, len);
       break;
     case UNK2:
@@ -666,6 +605,14 @@ unsigned char out0000[] = {
       assert( len == 12 ); // int32 x 3 ?
       print_int32( (int32_t*)buffer, len);
       break;
+    case UNKF:
+      assert( len == 156 ); // 
+      //dump2file( (int32_t*)buffer, len);
+      //print_float( buffer, len);
+      print_int32( buffer, len);
+      //print_int32( buffer, len);
+      //print_hex( (int32_t*)buffer, len);
+      break;
     case DATETIME:
       assert( len == 19 || len == 20 );
       print_string( buffer, len);
@@ -761,6 +708,7 @@ unsigned char out0000[] = {
       break;
     default:
       //printf(" [??] #%d", len);
+ assert(0);
       print_hex( buffer, len);
   }
 }
