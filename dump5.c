@@ -49,7 +49,7 @@ enum Type {
   UNK5E         = 0x001b5e00, // USAN string
   UNK5F         = 0x001b5f00, // USAN string
   UNK40         = 0x001f4000, //  
-  UNK41         = 0x001f4100, //  
+  UNK41         = 0x001f4100, //  zero + UID
   UNK43         = 0x001f4300, //  multi string stored ?
   UNK44         = 0x001f4400, //  multi strings stored ?
   UNK46         = 0x001f4600, //  
@@ -69,47 +69,46 @@ enum Type {
   UNK32         = 0xff003200, // 
   UNKF2         = 0xfff00200, // 
 #if 0
-00000100  
-00000200  
-00000300  
-00000400  
-00000500  
-00000600  
-00000b00  
-00000e00  
-0007d000  
-000bb800  
-000bb900  
-000bba00  
-000bbb00  
-000bc100  
-000bc200  
-000bc300  
-00177000  
-00177200  
-001b5e00  
-001b5f00  
-001f4000  
-001f4100  
-001f4300  
-001f4400  
-001f4600  
-ff000400  
-ff000800  
-ff002000  
-ff002100  
-ff002200  
-ff002300  
-ff002400  
-ff002500  
-ff002800  
-ff002900  
-ff002a00  
-ff002c00  
-ff003100  
-ff003200  
-fff00200  
-
+0x00000100 
+0x00000200 
+0x00000300 
+0x00000400 
+0x00000500 
+0x00000600 
+0x00000b00 
+0x00000e00 
+0x0007d000 
+0x000bb800 
+0x000bb900 
+0x000bba00 
+0x000bbb00 
+0x000bc100 
+0x000bc200 
+0x000bc300 
+0x00177000 
+0x00177200 
+0x001b5e00 
+0x001b5f00 
+0x001f4000 
+0x001f4100 
+0x001f4300 
+0x001f4400 
+0x001f4600 
+0xff000400 
+0xff000800 
+0xff002000 
+0xff002100 
+0xff002200 
+0xff002300 
+0xff002400 
+0xff002500 
+0xff002800 
+0xff002900 
+0xff002a00 
+0xff002c00 
+0xff003100 
+0xff003200 
+0xfff00200 
 #endif
 };
 static bool iszero( float f )
@@ -428,6 +427,46 @@ static void print_string44( const char * buffer, int len)
   printf("] #%d", len);
   // remaining stuff should all be 0
 }
+typedef struct uid41 {
+  uint32_t zero;
+  char buffer1[0x41];
+  char buffer2[0x43];
+} uid41;
+static void print_uid41( const char * buffer, int len)
+{
+  assert( len == 136 );
+  uid41 i;
+  assert( sizeof i == 136 );
+  memcpy(&i, buffer, sizeof i);
+  printf(" [%d,%.*s,%.*s] #%d", i.zero, sizeof i.buffer1, i.buffer1, sizeof i.buffer2, i.buffer2, len);
+}
+typedef struct str40 {
+  uint32_t zero;
+  char str[7][0x30];
+} str40;
+static void print_string40( const char * buffer, int len)
+{
+  assert( len % 340 == 0  );
+  //assert( sizeof(str40) == 340 );
+  printf(" [");
+  int j;
+  for( j = 0; j < len / 340; ++j ) {
+    str40 a;
+    assert( sizeof a == 340 );
+    memcpy(&a, buffer + j * 340, sizeof a);
+      if(j) printf(",");
+      printf("%u:{", a.zero );
+    int i;
+    for( i = 0; i < 7; ++i ) {
+      if(i) printf(",");
+      printf("%s", a.str[i] );
+    }
+    printf("}" );
+  }
+  printf("] #%d", len);
+
+}
+
 static void print_string46( const char * buffer, int len)
 {
   assert ( len == 325 ); // 65 * 5 
@@ -497,6 +536,23 @@ static void print(uint32_t type, char *buffer, int len)
       //print_uint16( (uint16_t*)buffer, len);
       //print_hex( buffer, len);
       break;
+    case UNK40:
+assert( len == 1020 || len == 340 );
+      //dump2file( buffer, len);
+      //print_uint64( (uint32_t*)buffer, len);
+      //print_uint16( (uint16_t*)buffer, len);
+      //print_hex( buffer, len);
+      //print_uid41( buffer, len);
+      print_string40( buffer, len);
+      break;
+    case UNK41:
+      assert( len == 136 );
+      //dump2file( (float*)buffer, len);
+      //print_uint64( (uint32_t*)buffer, len);
+      //print_uint16( (uint16_t*)buffer, len);
+      //print_hex( buffer, len);
+      print_uid41( buffer, len);
+      break;
     case UNK2:
       assert( len == 36 );
       //print_float( (float*)buffer, len);
@@ -504,9 +560,51 @@ static void print(uint32_t type, char *buffer, int len)
       //print_uint16( (uint16_t*)buffer, len);
       //print_hex( buffer, len);
       break;
+    case UNKB9:
+      assert( len == 24 );
+// only zero ?
+      print_uint64( (uint16_t*)buffer, len);
+      //print_hex( buffer, len);
+      break;
+    case UNKB8:
+      assert( len == 36);
+{
+unsigned char out0000[] = {
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00,
+  0x4b, 0x00, 0x00, 0x00,
+  0xcd, 0xcc, 0x4c, 0x3f, // 0.8 in float
+  0xcd, 0xcc, 0x4c, 0x3f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+}
+      //dump2file(buffer, len);
+      print_int16( (uint32_t*)buffer, len);
+      //print_hex( buffer, len);
+      break;
+    case UNK72:
+      assert( len == 12);
+{
+unsigned char out0000[] = {
+  0x01, 0x00, 0x00, 0x00, 0x22, 0x00, 0xff, 0x00, 0x40, 0x00, 0x00, 0x00
+};
+}
+      //dump2file(buffer, len);
+      //print_int32( (uint32_t*)buffer, len);
+      print_uint16( (uint32_t*)buffer, len);
+      //print_float( (uint32_t*)buffer, len);
+      //print_hex( buffer, len);
+      break;
     case UNK43:
       assert( len == 436);
       print_string43(buffer, len);
+      break;
+    case CHARACTER_SET:
+      //dump2file(buffer, len);
+      //print_hex( buffer, len);
+  printf(" [?CHARACTER_SET?] #%d", len);
       break;
     case UNK44:
       assert( len == 516 );
@@ -642,12 +740,13 @@ static void print(uint32_t type, char *buffer, int len)
       break;
     case UNKC2:
 {
-      assert( len % 11 == 0 );
+      //dump2file(buffer, len);
+      assert( len % 11 == 0 ); // 264    330    396    462    528    66    
       int mult = len / 11;
       assert( mult % 6 == 0 );
-      //print_uint16( (uint16_t*)buffer, len);
+      print_uint16( (uint16_t*)buffer, len);
       //dump2file(buffer, len );
-      print_hex( buffer, len);
+      //print_hex( buffer, len);
 }
       break;
     case STRING:
