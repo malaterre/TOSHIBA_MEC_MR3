@@ -454,7 +454,7 @@ static void print_stringbc3( const char * buffer, int len)
     assert( str[3] == 0x0 );
     assert( str[4] == 0x41 || str[4] == 0x43 /* C */ || str[4] == 0x45 /* E */ );
     const int c = str[5];
-    assert( c < 8 && c >= 0 );
+    assert( c <= 10 && c >= 0 );
     printf("%.*s#%c%d", 3, str, str[4], c);
   }
   printf("] #%d", len);
@@ -473,7 +473,7 @@ static void print_stringC1( const char * buffer, int len)
     assert( str[3] == 0x0 );
     assert( str[5] == 0x41 || str[5] == 0x43 /* C */ || str[5] == 0x45 /* E */ );
     const int c = str[4];
-    assert( c < 5 && c >= 0 );
+    assert( c <= 5 && c >= 0 );
     printf("%.*s#%d%c", 3, str, c, str[5]);
   }
   printf("] #%d", len);
@@ -598,8 +598,8 @@ unsigned char out0000[] = {
       print_float( (float*)buffer, len);
       break;
     case UNK4:
-      assert( len % 4 == 0 ); // pair of int16 ?
-      print_int32( (int16_t*)buffer, len);
+      assert( len % 4 == 0 ); // int32 ?
+      print_int32( (int32_t*)buffer, len);
       break;
     case UNKB:
       assert( len == 12 ); // int32 x 3 ?
