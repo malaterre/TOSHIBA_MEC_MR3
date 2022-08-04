@@ -32,7 +32,7 @@ enum Type {
   UNK2          = 0x00000200, // 
   WSTRING       = 0x00000300, // ISO-8859-1 ?
   UNK4          = 0x00000400, // VM1_n
-  VECT2FLOAT    = 0x00000500, // float single precision x 2. a806 seems to refers to FOV (700d,1005)
+  VECT2FLOAT    = 0x00000500, // float single precision x 2_n a806 seems to refers to FOV (700d,1005)
   VECT3FLOAT    = 0x00000600, // float single precision x 3. 6719/671a/671b Orientation Vector (700d,1002)
   UNKB          = 0x00000b00, // 
   DATETIME      = 0x00000e00, // Date/Time stored as ASCII
@@ -330,7 +330,8 @@ static void print_string43( const char * buffer, int len)
   printf("%u", i.zero);
   static const char vers1[] = "TM_MR_DCM_V1.0";
   static const char vers2[] = "TM_MR_DCM_V2.0";
-  assert( strcmp(i.iver, vers1) == 0 || strcmp(i.iver, vers2) == 0 );
+  static const char vers3[] = "TM_MR_DCM_V1.0_3";
+  assert( strcmp(i.iver, vers1) == 0 || strcmp(i.iver, vers2) == 0 || strcmp(i.iver, vers3) == 0 );
   assert( strcmp(i.modality, "MR") == 0 );
   printf(",%s,%s,%s,%s,%s,", i.iver, i.buf3, i.buf4, i.buf5, i.modality);
   assert( i.val == 1 || i.val == 3 );
@@ -586,7 +587,7 @@ unsigned char out0000[] = {
       print_int32( (int32_t*)buffer, len);
       break;
     case VECT2FLOAT:
-      assert( len == 8 );
+      assert( len == 8 || len == 40 );
       print_float( (float*)buffer, len);
       break;
     case VECT3FLOAT:
