@@ -331,7 +331,8 @@ static void print_string43( const char * buffer, int len)
   static const char vers1[] = "TM_MR_DCM_V1.0";
   static const char vers2[] = "TM_MR_DCM_V2.0";
   static const char vers3[] = "TM_MR_DCM_V1.0_3";
-  assert( strcmp(i.iver, vers1) == 0 || strcmp(i.iver, vers2) == 0 || strcmp(i.iver, vers3) == 0 );
+  static const char vers4[] = "TM_MR1_DCM_V1.0";
+  assert( strcmp(i.iver, vers1) == 0 || strcmp(i.iver, vers2) == 0 || strcmp(i.iver, vers3) == 0 || strcmp(i.iver, vers4) == 0 );
   assert( strcmp(i.modality, "MR") == 0 );
   printf(",%s,%s,%s,%s,%s,", i.iver, i.buf3, i.buf4, i.buf5, i.modality);
   assert( i.val == 1 || i.val == 3 );
@@ -451,8 +452,9 @@ static void print_stringbc3( const char * buffer, int len)
     if(i) printf(",");
     const char * str = (buffer+4) + i * 8;
     assert( str[3] == 0x0 );
-    assert( str[4] == 0x41 || str[4] == 0x43 );
+    assert( str[4] == 0x41 || str[4] == 0x43 /* C */ || str[4] == 0x45 /* E */ );
     const int c = str[5];
+    assert( c < 8 && c >= 0 );
     printf("%.*s#%c%d", 3, str, str[4], c);
   }
   printf("] #%d", len);
@@ -469,8 +471,9 @@ static void print_stringC1( const char * buffer, int len)
     if(i) printf(",");
     const char * str = buffer + i * 6;
     assert( str[3] == 0x0 );
+    assert( str[5] == 0x41 || str[5] == 0x43 /* C */ || str[5] == 0x45 /* E */ );
     const int c = str[4];
-    assert( str[5] == 0x41 );
+    assert( c < 5 && c >= 0 );
     printf("%.*s#%d", 3, str, c);
   }
   printf("] #%d", len);
@@ -595,8 +598,8 @@ unsigned char out0000[] = {
       print_float( (float*)buffer, len);
       break;
     case UNK4:
-      assert( len % 8 == 0 ); // pair of int32 ?
-      print_int32( (int32_t*)buffer, len);
+      assert( len % 4 == 0 ); // pair of int16 ?
+      print_int32( (int16_t*)buffer, len);
       break;
     case UNKB:
       assert( len == 12 ); // int32 x 3 ?
@@ -621,7 +624,7 @@ unsigned char out0000[] = {
       print_usan(buffer, len);
       break;
     case UNK21:
-      assert( len == 20 || len == 16 || len == 24 );
+      assert( len == 20 || len == 16 || len == 24 || len == 28 || len == 88 );
       print_int32( (int32_t*)buffer, len);
       break;
     case UINT16:
@@ -744,7 +747,7 @@ int main(int argc, char * argv[])
       assert( ( si.type & 0x00ff ) == 0x0 );
       const uint32_t type = si.type ;
       printf("  #key: 0x%08x #type: 0x%08x ", si.key, si.type );
-      assert( si.len <= 9184 /* 8192 */ );
+      assert( si.len <= 9509 /* 9216 */ /*9184*/ /* 8192 */ );
       //printf("  #k1: 0x%08lx #k2: 0x%08x", si.k1, si.k2 );
 //      printf("  #Pos: %7ld 0x%08lx #Len:%08u 0x%08x\n", pos, pos, si.len, si.len );
       int b = memcmp(si.separator, magic2, sizeof(magic2) );
