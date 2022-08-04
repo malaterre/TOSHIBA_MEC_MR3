@@ -474,7 +474,7 @@ static void print_stringC1( const char * buffer, int len)
     assert( str[5] == 0x41 || str[5] == 0x43 /* C */ || str[5] == 0x45 /* E */ );
     const int c = str[4];
     assert( c < 5 && c >= 0 );
-    printf("%.*s#%d", 3, str, c);
+    printf("%.*s#%d%c", 3, str, c, str[5]);
   }
   printf("] #%d", len);
 }
