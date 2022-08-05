@@ -322,7 +322,7 @@ static bool read_data(struct app *self, const struct mec_mr3_info *info,
   int b = memcmp(separator, magic2, sizeof(magic2));
   ERROR_RETURN(b, 0);
   data->buffer = (char *)realloc(data->buffer, data->len);
-  if (data->buffer == NULL) {
+  if (data->len != 0 && data->buffer == NULL) {
     return false;
   }
 
