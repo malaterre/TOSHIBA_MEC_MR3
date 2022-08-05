@@ -250,7 +250,7 @@ static bool write_trailer(struct app *self) {
     return true;
   // else it is missing one byte (nul byte):
   char padding;
-  size_t s = fread_mirror(&padding, 1, sizeof padding, self);
+  size_t s = fread_mirror(&padding, sizeof padding, 1, self);
   ERROR_RETURN(s, 1);
   ERROR_RETURN(padding, 0);
 
@@ -322,6 +322,9 @@ static bool read_data(struct app *self, const struct mec_mr3_info *info,
   int b = memcmp(separator, magic2, sizeof(magic2));
   ERROR_RETURN(b, 0);
   data->buffer = (char *)realloc(data->buffer, data->len);
+  if (data->buffer == NULL) {
+    return false;
+  }
 
   if (key_is_phi(info->key)) {
     // found a key indicating potential phi
@@ -382,9 +385,10 @@ static bool mec_mr3_scrub(void *output, const void *input, size_t len) {
   data.len = 0;
   data.buffer = NULL;
 
-  uint32_t remain = 0;
+  uint32_t remain = 1;
   size_t s;
   bool last_element = false;
+  // read until last set of group found:
   while (!last_element && good) {
     uint32_t nitems;
     s = fread_mirror(&nitems, sizeof nitems, 1, self);
@@ -403,6 +407,7 @@ static bool mec_mr3_scrub(void *output, const void *input, size_t len) {
     // lazy evaluation
     good = good && read_group(self, nitems, &info, &data);
   }
+  // read remaining groups:
   while (good && --remain != 0) {
     uint32_t nitems;
     s = fread_mirror(&nitems, sizeof nitems, 1, self);
