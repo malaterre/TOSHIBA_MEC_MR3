@@ -103,6 +103,19 @@ static size_t fread_mirror(void *ptr, size_t size, size_t nmemb,
   return 0;
 }
 
+// uncomment the following to validate the parser:
+//#define NOOP
+
+static inline void clean_buffer(char *str, size_t buf_len) {
+#ifndef NOOP
+  size_t i;
+  const size_t len = strnlen(str, buf_len);
+  for (i = 0; i < len; ++i) {
+    str[i] = ' ';
+  }
+#endif
+}
+
 struct buffer19 {
   char sig1[0x3];
   unsigned char len2;
@@ -126,26 +139,22 @@ static size_t fread_mirror_clean_iso(void *ptr, size_t size, size_t nmemb,
     if (nmemb >= sizeof magic && memcmp(ptr, magic, sizeof(magic)) == 0) {
       // iso
       struct buffer19 b19;
-      assert(sizeof b19 == 19);
-      assert(nmemb > sizeof b19);
+      if (nmemb < sizeof b19)
+        return 0;
       memcpy(&b19, ptr, sizeof b19);
-      assert(b19.sig2 == 0x1);
-      assert(b19.sig3 == 0x0);
-      assert(b19.sig4 == 0x2);
-      assert(b19.sig5 == 0x0);
-      assert(b19.len2 + 4 == nmemb);
-      assert(b19.len3 == 9);
-      const size_t diff = nmemb - (7 + 9 + 3);
-      assert(b19.len4 == diff);
-      assert(strncmp(b19.iso, "ISO8859-1", 9) == 0);
-      char *str = (char *)ptr + 7 + 9 + 3;
-      size_t i;
-      for (i = 0; i < b19.len4; ++i) {
-        str[i] = ' ';
-      }
+      if (b19.sig2 != 0x1 || b19.sig3 != 0x0 || b19.sig4 != 0x2 ||
+          b19.sig5 != 0x0)
+        return 0;
+      const size_t diff = nmemb - sizeof b19;
+      if (b19.len2 != nmemb - 4 || b19.len3 != 9 || b19.len4 != diff)
+        return 0;
+      if (strncmp(b19.iso, "ISO8859-1", 9) != 0)
+        return 0;
+      char *str = (char *)ptr + sizeof b19;
+      clean_buffer(str, b19.len4);
     } else {
       // raw string buffer
-      assert(0);
+      clean_buffer(ptr, nmemb);
     }
     s = outstream->write(ptr, size, nmemb, outstream);
     if (s == nmemb)
@@ -179,7 +188,7 @@ struct buffer325 {
   str64 array[5];
 };
 
-static size_t fread_mirror_clean_buffer(void *ptr, size_t size, size_t nmemb,
+static size_t fread_mirror_clean_struct(void *ptr, size_t size, size_t nmemb,
                                         struct app *self) {
   struct stream *instream = self->in;
   struct stream *outstream = self->out;
@@ -188,44 +197,24 @@ static size_t fread_mirror_clean_buffer(void *ptr, size_t size, size_t nmemb,
   if (s == nmemb) {
     if (s == 436) {
       struct buffer436 b436;
-      assert(sizeof b436 == 436);
       memcpy(&b436, ptr, nmemb);
-
-      char *str = b436.buf3;
-      const size_t len = strnlen(str, sizeof b436.buf3);
-      size_t i;
-      for (i = 0; i < len; ++i) {
-        str[i] = ' ';
-      }
+      clean_buffer(b436.buf3, sizeof b436.buf3);
       memcpy(ptr, &b436, nmemb);
     } else if (s == 516) {
       struct buffer516 b516;
-      assert(sizeof b516 == 516);
       memcpy(&b516, ptr, nmemb);
-
-      char *str = b516.buf3;
-      const size_t len = strnlen(str, sizeof b516.buf3);
-      size_t i;
-      for (i = 0; i < len; ++i) {
-        str[i] = ' ';
-      }
+      clean_buffer(b516.buf3, sizeof b516.buf3);
       memcpy(ptr, &b516, nmemb);
     } else if (s == 325) {
       struct buffer325 b325;
-      assert(sizeof b325 == 325);
       memcpy(&b325, ptr, nmemb);
       int a;
       for (a = 0; a < 5; ++a) {
-        char *str = b325.array[a];
-        const size_t len = strnlen(str, sizeof b325.array[a]);
-        size_t i;
-        for (i = 0; i < len; ++i) {
-          str[i] = ' ';
-        }
+        clean_buffer(b325.array[a], sizeof b325.array[a]);
       }
       memcpy(ptr, &b325, nmemb);
     } else {
-      assert(0);
+      assert(0); // programmer error
       return 0;
     }
     s = outstream->write(ptr, size, nmemb, outstream);
@@ -242,13 +231,7 @@ static size_t fread_mirror_clean_shift_jis(void *ptr, size_t size, size_t nmemb,
 
   size_t s = instream->read(ptr, size, nmemb, instream);
   if (s == nmemb) {
-    char *str = ptr;
-    const size_t len = strnlen(str, nmemb);
-    size_t i;
-    for (i = 0; i < len; ++i) {
-      str[i] = ' ';
-    }
-
+    clean_buffer(ptr, nmemb);
     s = outstream->write(ptr, size, nmemb, outstream);
     if (s == nmemb)
       return nmemb;
@@ -256,7 +239,10 @@ static size_t fread_mirror_clean_shift_jis(void *ptr, size_t size, size_t nmemb,
   return 0;
 }
 
-static bool read_magic(struct app *self) { return true; }
+static bool read_magic(struct app *self) {
+  (void)self;
+  return true;
+}
 
 static bool write_trailer(struct app *self) {
   assert(self->in->cur <= self->in->end);
@@ -307,7 +293,7 @@ static const uint32_t with_phi[] = {
 };
 
 static inline bool key_is_phi(const uint32_t val) {
-  int i;
+  unsigned int i;
   for (i = 0; i < sizeof(with_phi) / sizeof(*with_phi); i++) {
     if (with_phi[i] == val)
       return true;
@@ -317,11 +303,11 @@ static inline bool key_is_phi(const uint32_t val) {
 
 enum Type {
   ISO_8859_1_STRING =
-      0x00000300, // ASCII string / or struct with 'ISO-8859-1 :' identifier
-  BUFFER_436 = 0x001f4300, // Fixed buffer 436 bytes (struct with ASCII strings)
-  BUFFER_516 = 0x001f4400, // Fixed buffer 516 bytes (struct with ASCII strings)
-  BUFFER_325 = 0x001f4600, // Fixed buffer 325 bytes (struct with ASCII strings)
-  SHIFT_JIS_STRING = 0xff002c00, // SHIFT-JIS strings
+      0x00000300,          // ASCII string / or struct with 'ISO-8859-1' marker
+  STRUCT_436 = 0x001f4300, // Fixed struct 436 bytes (struct with ASCII strings)
+  STRUCT_516 = 0x001f4400, // Fixed struct 516 bytes (struct with ASCII strings)
+  STRUCT_325 = 0x001f4600, // Fixed struct 325 bytes (struct with ASCII strings)
+  SHIFT_JIS_STRING = 0xff002c00, // SHIFT-JIS string
 };
 
 static bool read_data(struct app *self, const struct mec_mr3_info *info,
@@ -344,16 +330,16 @@ static bool read_data(struct app *self, const struct mec_mr3_info *info,
     case ISO_8859_1_STRING:
       s = fread_mirror_clean_iso(data->buffer, 1, data->len, self);
       break;
-    case BUFFER_436:
-    case BUFFER_516:
-    case BUFFER_325:
-      s = fread_mirror_clean_buffer(data->buffer, 1, data->len, self);
+    case STRUCT_436:
+    case STRUCT_516:
+    case STRUCT_325:
+      s = fread_mirror_clean_struct(data->buffer, 1, data->len, self);
       break;
     case SHIFT_JIS_STRING:
       s = fread_mirror_clean_shift_jis(data->buffer, 1, data->len, self);
       break;
     default:
-      assert(0);
+      assert(0); // programmer error
       return false;
     }
   } else {
@@ -367,12 +353,14 @@ static bool read_data(struct app *self, const struct mec_mr3_info *info,
 static bool read_group(struct app *self, uint32_t nitems,
                        struct mec_mr3_info *info,
                        struct mec_mr3_item_data *data) {
+  bool good = true;
   uint32_t i;
-  for (i = 0; i < nitems; ++i) {
-    read_info(self, info);
-    read_data(self, info, data);
+  for (i = 0; i < nitems && good; ++i) {
+    good = good && read_info(self, info);
+    // lazy evaluation:
+    good = good && read_data(self, info, data);
   }
-  return true;
+  return good;
 }
 
 #undef ERROR_RETURN
@@ -397,24 +385,34 @@ static bool mec_mr3_scrub(void *output, const void *input, size_t len) {
   uint32_t remain = 0;
   size_t s;
   bool last_element = false;
-  while (!last_element) {
+  while (!last_element && good) {
     uint32_t nitems;
     s = fread_mirror(&nitems, sizeof nitems, 1, self);
-    assert(nitems > 0);
-    if (nitems <= 3) {
+    if (s != 1 || nitems == 0) {
+      good = false;
+    }
+    if (good && nitems <= 3) {
       // special case to handle last element
       remain = nitems;
       last_element = true;
-      fread_mirror(&nitems, 1, sizeof nitems, self);
+      s = fread_mirror(&nitems, sizeof nitems, 1, self);
+      if (s != 1 || nitems == 0) {
+        good = false;
+      }
     }
-    read_group(self, nitems, &info, &data);
+    // lazy evaluation
+    good = good && read_group(self, nitems, &info, &data);
   }
-  while (--remain != 0) {
+  while (good && --remain != 0) {
     uint32_t nitems;
     s = fread_mirror(&nitems, sizeof nitems, 1, self);
-    assert(nitems > 3);
-    read_group(self, nitems, &info, &data);
+    if (s != 1 || nitems <= 3) {
+      good = false;
+    }
+    good = good && read_group(self, nitems, &info, &data);
   }
+  // release memory:
+  free(data.buffer);
   if (!good)
     return false;
 
@@ -424,7 +422,7 @@ static bool mec_mr3_scrub(void *output, const void *input, size_t len) {
   }
 
   // make sure the whole input was processed:
-  assert(self->in->cur <= self->in->end);
+  assert(self->in->cur <= self->in->end); // programmer error
   if (self->in->cur < self->in->end) {
     return false;
   }
