@@ -65,7 +65,7 @@ enum Type {
   FLOAT28       = 0xff002800, // float single precision. afea ?? VM1_n
   DOUBLE        = 0xff002900, // 0x13ec is Imaging Frequency
   BOOL          = 0xff002a00, // BOOL stored as INT32 ?
-  STRING        = 0xff002c00, // ASCII (UTF-8 ?) string
+  STRING        = 0xff002c00, // SHIFT-JIS string
   UNK31         = 0xff003100, // 
   UNK32         = 0xff003200, // 
   UNKF2         = 0xfff00200, // 
@@ -683,6 +683,7 @@ unsigned char out0000[] = {
       //if( len % 2 == 0 ) assert( buffer[len-1] == 0 );
       //b3d5 does not seems to contains a trailing NULL
       print_string( buffer, len );
+      dump2file(buffer, len );
       break;
     default:
       assert(0);
@@ -716,16 +717,19 @@ int main(int argc, char * argv[])
     */
 
   int remain = 0;
+  bool last_element = false;
   while( --remain != 0 )
   {
     uint32_t nitems;
     fread(&nitems, 1, sizeof nitems, in);
     if( nitems <= 3 ) {
+      assert( !last_element );
        // special case to handle last element ?
       printf("<#last element coming: %08x>\n", nitems);
       assert( nitems > 0 );
       remain = nitems;
       fread(&nitems, 1, sizeof nitems, in);
+      last_element = true;
     }
     printf("Group %d #Items: %u\n", r,  nitems );
     ++r;
