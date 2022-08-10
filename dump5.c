@@ -749,6 +749,8 @@ int main(int argc, char * argv[])
  * #tag2: 0xfff0
  */
       assert( ( si.type & 0x00ff ) == 0x0 );
+      const uint32_t sign = si.type >> 24;
+      assert( sign == 0x0 || sign == 0xff );
       const uint32_t type = si.type ;
       printf("  #key: 0x%08x #type: 0x%08x ", si.key, si.type );
       assert( si.len <= 9509 /* 9216 */ /*9184*/ /* 8192 */ );
