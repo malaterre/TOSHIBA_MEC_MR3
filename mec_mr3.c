@@ -275,6 +275,8 @@ static bool read_info(struct app *self, struct mec_mr3_info *info) {
   size_t s = fread_mirror(info, sizeof *info, 1, self);
   ERROR_RETURN(s, 1);
   ERROR_RETURN(info->type & 0x00ff, 0x0);
+  const uint32_t sign = info->type >> 24;
+  ERROR_RETURN(sign == 0x0 || sign == 0xff, true);
 
   return true;
 }
