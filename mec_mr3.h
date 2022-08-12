@@ -26,4 +26,4 @@ void *mec_mr3_memcpy(void *dest, const void *src, size_t n);
 } /* end extern "C" */
 #endif
 
-#endif  // MEC_MR3_H
+#endif // MEC_MR3_H
