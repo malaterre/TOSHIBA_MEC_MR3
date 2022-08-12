@@ -1,5 +1,7 @@
 #include "mec_mr3_dict.h"
 
+#include <assert.h>
+
 struct mec_mr3_dict {
   uint8_t group;
   uint32_t key;
@@ -771,10 +773,11 @@ static const struct mec_mr3_dict dict[] = {
     {0x08, 0x0003672b, 0x00000600}, //
 };
 
+static const uint32_t dict_size = sizeof(dict) / sizeof(*dict);
+
 void check_mec_mr3_dict() {
-  static const uint32_t size = sizeof(dict) / sizeof(*dict);
   const struct mec_mr3_dict *prev = dict + 0;
-  for (uint32_t i = 1; i < size; ++i) {
+  for (uint32_t i = 1; i < dict_size; ++i) {
     const struct mec_mr3_dict *next = dict + i;
     if (next->group == prev->group)
       assert(next->key > prev->key);
@@ -784,3 +787,20 @@ void check_mec_mr3_dict() {
   }
 }
 
+bool check_mec_mr3_info(const uint8_t group, const uint32_t key,
+                        const uint32_t type) {
+  assert(group > 0x0 && group < 0x9);
+  assert((key & 0xfff00000) == 0x0);
+  assert((type & 0x00ff) == 0x0);
+  const uint32_t sign = type >> 24;
+  assert(sign == 0x0 || sign == 0xff);
+  bool found = false;
+  for (uint32_t i = 0; i < dict_size; ++i) {
+    const struct mec_mr3_dict *d = dict + i;
+    if (group == d->group && key == d->key) {
+      assert(d->type == type);
+      found = true;
+    }
+  }
+  return found;
+}
