@@ -112,6 +112,8 @@ static bool read_info(struct app *self, const uint8_t group,
 static bool read_data(struct app *self, const uint8_t group,
                       const struct mec_mr3_info *info,
                       struct mec_mr3_item_data *data) {
+  (void)group;
+  (void)info;
   size_t s = fread_mirror(&data->len, sizeof data->len, 1, self);
   ERROR_RETURN(s, 1);
   // in the wild we have: data->len <= 9509
@@ -164,6 +166,7 @@ static void dump2file(const char *in, int len) {
 }
 
 static bool print_iso(void *ptr, size_t size, size_t nmemb, struct app *self) {
+  assert(size == 1);
   static const char magic[] = {0xdf, 0xff, 0x79};
   if (nmemb >= sizeof magic && memcmp(ptr, magic, sizeof(magic)) == 0) {
     // iso
@@ -194,7 +197,7 @@ static bool print_iso(void *ptr, size_t size, size_t nmemb, struct app *self) {
         assert(0);
       }
       dest_str[sizeof dest_str - outbytes] = 0;
-      printf("{%.*s : %.*s}", 9, b19.iso, outbytes, dest_str);
+      printf("{%.*s : %.*s}", 9, b19.iso, (int)outbytes, dest_str);
     }
   } else {
     // raw string buffer
@@ -214,9 +217,6 @@ struct buffer436 {
   str16 buf5;
   char modality[0x15];
   uint32_t val;
-};
-struct buffer325 {
-  str64 array[5];
 };
 
 void print_buffer436(struct buffer436 *b436) {
@@ -246,7 +246,7 @@ struct buffer516 {
 void print_buffer516(struct buffer516 *b516) {
   printf("{%s; %s; %s; %s; %s; %s; (", b516->zero, b516->buf2, b516->buf3,
          b516->buf4, b516->buf5, b516->buf6);
-  int c;
+  uint32_t c;
   for (c = 0; c < 6; ++c) {
     assert(b516->bools[c] == c % 2);
     if (c)
@@ -256,12 +256,25 @@ void print_buffer516(struct buffer516 *b516) {
   printf(")}");
 }
 
-void print_buffer325(struct buffer325 *b325) {}
+struct buffer325 {
+  str64 array[5];
+};
+
+void print_buffer325(struct buffer325 *b325) {
+  int c;
+  printf("{");
+  for (c = 0; c < 5; ++c) {
+    if (c)
+      printf(";");
+    printf("%s", b325->array[c]);
+  }
+  printf("}");
+}
 
 static bool print_struct(void *ptr, size_t size, size_t nmemb,
                          struct app *self) {
-  struct stream *instream = self->in;
 
+  (void)self;
   assert(size == 1);
   const size_t s = nmemb;
   if (s == 436) {
@@ -283,10 +296,33 @@ static bool print_struct(void *ptr, size_t size, size_t nmemb,
   return true;
 }
 
+static bool print_shift_jis(void *ptr, size_t size, size_t nmemb,
+                            struct app *self) {
+  assert(size == 1);
+  char *str = ptr;
+  {
+    char *gbk_str = str;
+    char *dest_str = (char *)malloc(nmemb * 2);
+    char *out = dest_str;
+    size_t inbytes = nmemb;
+    size_t outbytes = nmemb * 2;
+    if (iconv(self->conv, &gbk_str, &inbytes, &out, &outbytes) == (size_t)-1) {
+      dump2file(gbk_str, inbytes);
+      printf("[%.*s]", (int)nmemb, str);
+      fflush(stdout);
+      assert(0);
+    }
+    dest_str[nmemb * 2 - outbytes] = 0;
+    printf("[%.*s]", (int)outbytes, dest_str);
+    free(dest_str);
+  }
+  return true;
+}
+
 static bool print(struct app *self, const uint8_t group,
                   const struct mec_mr3_info *info,
                   struct mec_mr3_item_data *data) {
-  const char *name = get_mec_mr3_info_name(group, info->key, info->type);
+  const char *name = get_mec_mr3_info_name(group, info->key);
   const uint32_t sign = info->type >> 24;
   const char symb = sign ? '_' : ' ';
 
@@ -306,7 +342,7 @@ static bool print(struct app *self, const uint8_t group,
     ret = print_struct(data->buffer, 1, data->len, self);
     break;
   case SHIFT_JIS_STRING:
-    // s = print_shift_jis(data->buffer, 1, data->len, self);
+    ret = print_shift_jis(data->buffer, 1, data->len, self);
     break;
   default:
     ret = true;

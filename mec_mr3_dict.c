@@ -807,8 +807,7 @@ bool check_mec_mr3_info(const uint8_t group, const uint32_t key,
   return found;
 }
 
-const char *get_mec_mr3_info_name(const uint8_t group, const uint32_t key,
-                                  const uint32_t type) {
+const char *get_mec_mr3_info_name(const uint8_t group, const uint32_t key) {
   const char *ret = NULL;
   for (uint32_t i = 0; i < dict_size; ++i) {
     const struct mec_mr3_dict *d = dict + i;
