@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <iconv.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -140,6 +141,7 @@ enum Type {
   STRUCT_436 = 0x001f4300, // Fixed struct 436 bytes (struct with ASCII strings)
   STRUCT_516 = 0x001f4400, // Fixed struct 516 bytes (struct with ASCII strings)
   STRUCT_325 = 0x001f4600, // Fixed struct 325 bytes (struct with ASCII strings)
+  FLOAT8 = 0xff000800,     //
   SHIFT_JIS_STRING = 0xff002c00, // SHIFT-JIS string
 };
 
@@ -197,7 +199,8 @@ static bool print_iso(void *ptr, size_t size, size_t nmemb, struct app *self) {
         assert(0);
       }
       dest_str[sizeof dest_str - outbytes] = 0;
-      printf("{%.*s : %.*s}", 9, b19.iso, (int)outbytes, dest_str);
+      // printf("{%.*s : %.*s}", 9, b19.iso, (int)outbytes, dest_str);
+      printf("{%.*s : %s}", 9, b19.iso, dest_str);
     }
   } else {
     // raw string buffer
@@ -229,7 +232,7 @@ void print_buffer436(struct buffer436 *b436) {
          strcmp(b436->iver, vers3) == 0 || strcmp(b436->iver, vers4) == 0);
   assert(strcmp(b436->modality, "MR") == 0);
   assert(b436->val == 1 || b436->val == 3);
-  printf("{%u; %sr; %s; %s; %s; %s;%u}", b436->zero, b436->iver, b436->buf3,
+  printf("{%u; %s; %s; %s; %s; %s;%u}", b436->zero, b436->iver, b436->buf3,
          b436->buf4, b436->buf5, b436->modality, b436->val);
 }
 
@@ -244,16 +247,18 @@ struct buffer516 {
 };
 
 void print_buffer516(struct buffer516 *b516) {
-  printf("{%s; %s; %s; %s; %s; %s; (", b516->zero, b516->buf2, b516->buf3,
+  printf("{%s; %s; %s; %s; %s; %s", b516->zero, b516->buf2, b516->buf3,
          b516->buf4, b516->buf5, b516->buf6);
   uint32_t c;
   for (c = 0; c < 6; ++c) {
     assert(b516->bools[c] == c % 2);
+#if 0
     if (c)
       printf(",");
     printf("%d", b516->bools[c]);
+#endif
   }
-  printf(")}");
+  printf("}");
 }
 
 struct buffer325 {
@@ -313,9 +318,39 @@ static bool print_shift_jis(void *ptr, size_t size, size_t nmemb,
       assert(0);
     }
     dest_str[nmemb * 2 - outbytes] = 0;
-    printf("[%.*s]", (int)outbytes, dest_str);
+    // printf("[%.*s]", (int)outbytes, dest_str);
+    printf("[%s]", dest_str);
     free(dest_str);
   }
+  return true;
+}
+
+static void print_float(const float *buffer, int len) {
+  const int m = sizeof(float);
+  assert(len % m == 0);
+  int i;
+  for (i = 0; i < len / m; i++) {
+    if (i)
+      printf(",");
+#if 0
+      const float cur = buffer[i];
+#else
+    float cur = -1;
+    memcpy(&cur, buffer + i, sizeof cur);
+#endif
+    assert(isfinite(cur) && !isnan(cur));
+    printf("%f", cur);
+  }
+}
+
+static bool print_float8(void *ptr, size_t size, size_t nmemb,
+                         struct app *self) {
+  assert(size == 1);
+  (void)self;
+  assert(nmemb == 4);
+  float f;
+  memcpy(&f, ptr, nmemb);
+  print_float(&f, nmemb);
   return true;
 }
 
@@ -344,7 +379,11 @@ static bool print(struct app *self, const uint8_t group,
   case SHIFT_JIS_STRING:
     ret = print_shift_jis(data->buffer, 1, data->len, self);
     break;
+  case FLOAT8:
+    ret = print_float8(data->buffer, 1, data->len, self);
+    break;
   default:
+    printf("|NotImplemented|");
     ret = true;
   }
   // print key name
