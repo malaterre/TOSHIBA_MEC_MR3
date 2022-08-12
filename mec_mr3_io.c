@@ -136,7 +136,10 @@ enum Type {
   STRUCT_436 = 0x001f4300, // Fixed struct 436 bytes (struct with ASCII strings)
   STRUCT_516 = 0x001f4400, // Fixed struct 516 bytes (struct with ASCII strings)
   STRUCT_325 = 0x001f4600, // Fixed struct 325 bytes (struct with ASCII strings)
-  FLOAT8 = 0xff000800,     //
+  BOOL_04 = 0xff000400,    // bool/32bits
+  FLOAT32 = 0xff000800,    // float/32bits
+  FLOAT64 = 0xff002900,    // float/64bits
+  BOOL_2A = 0xff002a00,    // bool/32bits
   SHIFT_JIS_STRING = 0xff002c00, // SHIFT-JIS string
 };
 
@@ -227,7 +230,7 @@ void print_buffer436(struct buffer436 *b436) {
          strcmp(b436->iver, vers3) == 0 || strcmp(b436->iver, vers4) == 0);
   assert(strcmp(b436->modality, "MR") == 0);
   assert(b436->val == 1 || b436->val == 3);
-  printf("{%u; %s; %s; %s; %s; %s;%u}", b436->zero, b436->iver, b436->buf3,
+  printf("{%u;%s;%s;%s;%s;%s;%u}", b436->zero, b436->iver, b436->buf3,
          b436->buf4, b436->buf5, b436->modality, b436->val);
 }
 
@@ -242,8 +245,8 @@ struct buffer516 {
 };
 
 void print_buffer516(struct buffer516 *b516) {
-  printf("{%s; %s; %s; %s; %s; %s", b516->zero, b516->buf2, b516->buf3,
-         b516->buf4, b516->buf5, b516->buf6);
+  printf("{%s;%s;%s;%s;%s;%s", b516->zero, b516->buf2, b516->buf3, b516->buf4,
+         b516->buf5, b516->buf6);
   uint32_t c;
   for (c = 0; c < 6; ++c) {
     assert(b516->bools[c] == c % 2);
@@ -327,25 +330,63 @@ static void print_float(const float *buffer, int len) {
   for (i = 0; i < len / m; i++) {
     if (i)
       printf(",");
-#if 0
-      const float cur = buffer[i];
-#else
     float cur = -1;
     memcpy(&cur, buffer + i, sizeof cur);
-#endif
     assert(isfinite(cur) && !isnan(cur));
     printf("%f", cur);
   }
 }
 
-static bool print_float8(void *ptr, size_t size, size_t nmemb,
-                         struct app *self) {
+static void print_double(const double *buffer, int len) {
+  const int m = sizeof(double);
+  assert(len % m == 0);
+  int i;
+  printf(" [");
+  for (i = 0; i < len / m; i++) {
+    if (i)
+      printf(",");
+    const double cur = buffer[i];
+    assert(isfinite(cur) && !isnan(cur));
+    printf("%g", cur);
+  }
+  printf("]");
+}
+
+static bool print_float32(void *ptr, size_t size, size_t nmemb,
+                          struct app *self) {
   assert(size == 1);
   (void)self;
   assert(nmemb == 4);
   float f;
   memcpy(&f, ptr, nmemb);
   print_float(&f, nmemb);
+  return true;
+}
+
+static bool print_float64(void *ptr, size_t size, size_t nmemb,
+                          struct app *self) {
+  assert(size == 1);
+  (void)self;
+  assert(nmemb == 8);
+  double d;
+  memcpy(&d, ptr, nmemb);
+  print_double(&d, nmemb);
+  return true;
+}
+
+static bool print_bool32(void *ptr, size_t size, size_t nmemb,
+                         struct app *self) {
+  assert(size == 1);
+  (void)self;
+  assert(nmemb == 4);
+  uint32_t u;
+  memcpy(&u, ptr, nmemb);
+  assert(u == 0x0 || u == 0x1);
+#if 0
+  printf("%u", u);
+#else
+  printf("%s", u ? "true" : "false");
+#endif
   return true;
 }
 
@@ -374,8 +415,15 @@ static bool print(struct app *self, const uint8_t group,
   case SHIFT_JIS_STRING:
     ret = print_shift_jis(data->buffer, 1, data->len, self);
     break;
-  case FLOAT8:
-    ret = print_float8(data->buffer, 1, data->len, self);
+  case FLOAT32:
+    ret = print_float32(data->buffer, 1, data->len, self);
+    break;
+  case FLOAT64:
+    ret = print_float64(data->buffer, 1, data->len, self);
+    break;
+  case BOOL_04:
+  case BOOL_2A:
+    ret = print_bool32(data->buffer, 1, data->len, self);
     break;
   default:
     printf("|NotImplemented|");
