@@ -578,7 +578,7 @@ static void print(uint32_t type, char *buffer, int len) {
     // print_hex( buffer, len);
     break;
   case UNK70:
-    assert(len == 24);
+    assert(len == 24); // vect of bool
     print_uint32((uint32_t *)buffer, len);
     break;
   case STR46:

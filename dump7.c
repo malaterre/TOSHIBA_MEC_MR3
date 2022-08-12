@@ -1534,14 +1534,14 @@ int main(int argc, char *argv[]) {
     if (nitems <= 3) {
       assert(!last_element);
       // special case to handle last element ?
-      printf("<#last element coming: %08x>\n", nitems);
+      //      printf("<#last element coming: %08x>\n", nitems);
       assert(nitems > 0);
       remain = nitems;
       fread(&nitems, 1, sizeof nitems, in);
       last_element = true;
     }
     ++r;
-    printf("Group %d #Items: %u\n", r, nitems);
+    //    printf("Group %d #Items: %u\n", r, nitems);
     for (i = 0; i < nitems; ++i) {
       // long pos = ftell(in);
       // printf("Offset 0x%x \n", pos );
@@ -1557,8 +1557,10 @@ int main(int argc, char *argv[]) {
        * #tag2: 0xfff0
        */
       check_type(r, &si);
-      printf("  #group: 0x%08x #key: 0x%08x #type: 0x%08x ", r, si.key,
-             si.type);
+      const uint32_t sign = si.type >> 24;
+      const char symb = sign ? '_' : ' ';
+      printf("(%01x,%05x) %c%04x", r, si.key, symb,
+             (si.type & 0x00ffff00) >> 8);
       assert(si.len <= 9509 /* 9216 */ /*9184*/ /* 8192 */);
       // printf("  #k1: 0x%08lx #k2: 0x%08x", si.k1, si.k2 );
       //      printf("  #Pos: %7ld 0x%08lx #Len:%08u 0x%08x\n", pos, pos,
