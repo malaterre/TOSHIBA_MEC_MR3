@@ -94,19 +94,19 @@ struct mec_mr3_item_data {
 static const unsigned char magic2[] = {0, 0, 0, 0, 0, 0, 0, 0, 0xc, 0,
                                        0, 0, 0, 0, 0, 0, 0, 0, 0,   0};
 
-static bool read_info(struct app *self, struct mec_mr3_info *info) {
+static bool read_info(struct app *self, const uint8_t group,
+                      struct mec_mr3_info *info) {
   // read key and type at once:
   size_t s = fread_mirror(info, sizeof *info, 1, self);
   ERROR_RETURN(s, 1);
-  ERROR_RETURN(info->key & 0xfff00000, 0x0);
-  ERROR_RETURN(info->type & 0x00ff, 0x0);
-  const uint32_t sign = info->type >> 24;
-  ERROR_RETURN(sign == 0x0 || sign == 0xff, true);
+  bool found = check_mec_mr3_info(group, info->key, info->type);
+  ERROR_RETURN(found, true);
 
   return true;
 }
 
-static bool read_data(struct app *self, const struct mec_mr3_info *info,
+static bool read_data(struct app *self, const uint8_t group,
+                      const struct mec_mr3_info *info,
                       struct mec_mr3_item_data *data) {
   size_t s = fread_mirror(&data->len, sizeof data->len, 1, self);
   ERROR_RETURN(s, 1);
@@ -128,15 +128,28 @@ static bool read_data(struct app *self, const struct mec_mr3_info *info,
   return true;
 }
 
-static bool read_group(struct app *self, uint32_t nitems,
+static bool print(struct app *self, const uint8_t group,
+                  const struct mec_mr3_info *info,
+                  struct mec_mr3_item_data *data) {
+  const uint32_t sign = info->type >> 24;
+  const char symb = sign ? '_' : ' ';
+
+  printf("(%01x,%05x) %c%04x", group, info->key, symb,
+         (info->type & 0x00ffff00) >> 8);
+  printf("\n");
+  return true;
+}
+
+static bool read_group(struct app *self, uint8_t group, uint32_t nitems,
                        struct mec_mr3_info *info,
                        struct mec_mr3_item_data *data) {
   bool good = true;
   uint32_t i;
   for (i = 0; i < nitems && good; ++i) {
-    good = good && read_info(self, info);
+    good = good && read_info(self, group, info);
     // lazy evaluation:
-    good = good && read_data(self, info, data);
+    good = good && read_data(self, group, info, data);
+    good = good && print(self, group, info, data);
   }
   return good;
 }
@@ -158,6 +171,7 @@ static bool mec_mr3_print(const void *input, size_t len) {
   uint32_t remain = 1;
   size_t s;
   bool last_element = false;
+  uint8_t group = 0;
   // read until last set of group found:
   while (!last_element && good) {
     uint32_t nitems;
@@ -175,7 +189,8 @@ static bool mec_mr3_print(const void *input, size_t len) {
       }
     }
     // lazy evaluation
-    good = good && read_group(self, nitems, &info, &data);
+    ++group;
+    good = good && read_group(self, group, nitems, &info, &data);
   }
   // read remaining groups:
   while (good && --remain != 0) {
@@ -184,7 +199,8 @@ static bool mec_mr3_print(const void *input, size_t len) {
     if (s != 1 || nitems <= 3) {
       good = false;
     }
-    good = good && read_group(self, nitems, &info, &data);
+    ++group;
+    good = good && read_group(self, group, nitems, &info, &data);
   }
   // release memory:
   free(data.buffer);
@@ -218,7 +234,13 @@ int main(int argc, char *argv[]) {
   void *inbuffer = malloc(buf_len);
   n = fread(inbuffer, 1, buf_len, in);
   fclose(in);
+  int ret = 0;
+  if (n == buf_len) {
+    if (!mec_mr3_print(inbuffer, buf_len)) {
+      ret = 1;
+    }
+  }
   free(inbuffer);
 
-  return 0;
+  return ret;
 }
