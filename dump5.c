@@ -1476,6 +1476,7 @@ static void check_dict() {
 }
 
 static void check_type(uint32_t group, I *si) {
+  assert(group > 0x0 && group < 0x9);
   assert((si->key & 0xfff00000) == 0x0);
   assert((si->type & 0x00ff) == 0x0);
   const uint32_t sign = si->type >> 24;
