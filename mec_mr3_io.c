@@ -133,6 +133,7 @@ static bool read_data(struct app *self, const uint8_t group,
 enum Type {
   ISO_8859_1_STRING =
       0x00000300,          // ASCII string / or struct with 'ISO-8859-1' marker
+  DATETIME = 0x00000e00,   // Date/Time stored as ASCII
   STRUCT_436 = 0x001f4300, // Fixed struct 436 bytes (struct with ASCII strings)
   STRUCT_516 = 0x001f4400, // Fixed struct 516 bytes (struct with ASCII strings)
   STRUCT_325 = 0x001f4600, // Fixed struct 325 bytes (struct with ASCII strings)
@@ -204,6 +205,25 @@ static bool print_iso(void *ptr, size_t size, size_t nmemb, struct app *self) {
     // raw string buffer
     printf("[%.*s]", (int)nmemb, (char *)ptr);
   }
+  return true;
+}
+
+static bool print_datetime(void *ptr, size_t size, size_t nmemb,
+                           struct app *self) {
+  // 11/12/2002,11:27:32
+  assert(size == 1);
+  (void)self;
+  assert(nmemb == 19 || nmemb == 20);
+  char *str = (char *)ptr;
+  size_t i;
+  const size_t len = strnlen(str, nmemb);
+  assert(len == 19);
+  for (i = 0; i < len; ++i) {
+    assert((str[i] >= '0' && str[i] <= '9') || str[i] == '/' || str[i] == ',' ||
+           str[i] == ':');
+  }
+
+  printf("[%.*s]", (int)nmemb, str);
   return true;
 }
 
@@ -406,6 +426,9 @@ static bool print(struct app *self, const uint8_t group,
   switch (info->type) {
   case ISO_8859_1_STRING:
     ret = print_iso(data->buffer, 1, data->len, self);
+    break;
+  case DATETIME:
+    ret = print_datetime(data->buffer, 1, data->len, self);
     break;
   case STRUCT_436:
   case STRUCT_516:
