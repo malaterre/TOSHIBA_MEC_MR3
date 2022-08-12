@@ -693,11 +693,10 @@ static void print(uint32_t type, char *buffer, int len) {
   }
 }
 
-
 int main(int argc, char *argv[]) {
   if (argc < 2)
     return 1;
-check_mec_mr3_dict();
+  check_mec_mr3_dict();
   const char *filename = argv[1];
   FILE *in = fopen(filename, "rb");
   int i;
@@ -752,7 +751,7 @@ check_mec_mr3_dict();
        * #tag2: 0xfff0
        */
       bool found = check_mec_mr3_info(r, si.key, si.type);
-      assert( found );
+      assert(found);
       const uint32_t sign = si.type >> 24;
       const char symb = sign ? '_' : ' ';
       printf("(%01x,%05x) %c%04x", r, si.key, symb,

@@ -791,8 +791,8 @@ bool check_mec_mr3_info(const uint8_t group, const uint32_t key,
                         const uint32_t type) {
   assert(group > 0x0 && group < 0x9);
   assert((key & 0xfff00000) == 0x0);
-  assert((type & 0x00ff) == 0x0);
-  const uint32_t sign = type >> 24;
+  assert((type & 0x000000ff) == 0x0);
+  const uint32_t sign = type >> 24u;
   assert(sign == 0x0 || sign == 0xff);
   bool found = false;
   for (uint32_t i = 0; i < dict_size; ++i) {
