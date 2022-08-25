@@ -132,8 +132,11 @@ static bool read_data(struct app *self, const uint8_t group,
 
 enum Type {
   ISO_8859_1_STRING =
-      0x00000300,          // ASCII string / or struct with 'ISO-8859-1' marker
-  DATETIME = 0x00000e00,   // Date/Time stored as ASCII
+      0x00000300, // ASCII string / or struct with 'ISO-8859-1' marker
+  FLOAT32_VM2N = 0x00000500, // float/32bits VM:2n
+  FLOAT32_VM3N = 0x00000600, // float/32bits VM:3n
+  DATETIME = 0x00000e00,     // Date/Time stored as ASCII
+  STRUCT_136 = 0x001f4100, // Fixed struct 136 bytes (struct with ASCII strings)
   STRUCT_436 = 0x001f4300, // Fixed struct 436 bytes (struct with ASCII strings)
   STRUCT_516 = 0x001f4400, // Fixed struct 516 bytes (struct with ASCII strings)
   STRUCT_325 = 0x001f4600, // Fixed struct 325 bytes (struct with ASCII strings)
@@ -230,6 +233,19 @@ static bool print_datetime(void *ptr, size_t size, size_t nmemb,
 typedef char str16[16 + 1];
 typedef char str64[64 + 1];
 
+struct buffer136 {
+  uint32_t zero1;
+  str64 uid1; // Detached Study Management SOP Class (1.2.840.10008.3.1.2.3.1) ?
+  str64 uid2; // 1.2.840.113745.101000.1098000.X.Y.Z
+  uint16_t zero2;
+};
+
+void print_buffer136(struct buffer136 *b136) {
+  assert(b136->zero1 == 0);
+  assert(b136->zero2 == 0);
+  printf("{%u,%s,%s,%hu}", b136->zero1, b136->uid1, b136->uid2, b136->zero2);
+}
+
 struct buffer436 {
   uint32_t zero;
   char iver[0x45];
@@ -240,7 +256,7 @@ struct buffer436 {
   uint32_t val;
 };
 
-void print_buffer436(struct buffer436 *b436) {
+static void print_buffer436(struct buffer436 *b436) {
   static const char vers1[] = "TM_MR_DCM_V1.0";
   static const char vers2[] = "TM_MR_DCM_V2.0";
   static const char vers3[] = "TM_MR_DCM_V1.0_3";
@@ -264,7 +280,7 @@ struct buffer516 {
   uint32_t bools[6];
 };
 
-void print_buffer516(struct buffer516 *b516) {
+static void print_buffer516(struct buffer516 *b516) {
   printf("{%s;%s;%s;%s;%s;%s", b516->zero, b516->buf2, b516->buf3, b516->buf4,
          b516->buf5, b516->buf6);
   uint32_t c;
@@ -283,7 +299,7 @@ struct buffer325 {
   str64 array[5];
 };
 
-void print_buffer325(struct buffer325 *b325) {
+static void print_buffer325(struct buffer325 *b325) {
   int c;
   printf("{");
   for (c = 0; c < 5; ++c) {
@@ -300,7 +316,11 @@ static bool print_struct(void *ptr, size_t size, size_t nmemb,
   (void)self;
   assert(size == 1);
   const size_t s = nmemb;
-  if (s == 436) {
+  if (s == 136) {
+    struct buffer136 b136;
+    memcpy(&b136, ptr, nmemb);
+    print_buffer136(&b136);
+  } else if (s == 436) {
     struct buffer436 b436;
     memcpy(&b436, ptr, nmemb);
     print_buffer436(&b436);
@@ -383,6 +403,28 @@ static bool print_float32(void *ptr, size_t size, size_t nmemb,
   return true;
 }
 
+static bool print_float32_vm2n(void *ptr, size_t size, size_t nmemb,
+                               struct app *self) {
+  assert(size == 1);
+  (void)self;
+  assert(nmemb == 8 || nmemb == 40);
+  float f[10];
+  memcpy(f, ptr, nmemb);
+  print_float(f, nmemb);
+  return true;
+}
+
+static bool print_float32_vm3n(void *ptr, size_t size, size_t nmemb,
+                               struct app *self) {
+  assert(size == 1);
+  (void)self;
+  assert(nmemb == 12 || nmemb == 36);
+  float f[10];
+  memcpy(f, ptr, nmemb);
+  print_float(f, nmemb);
+  return true;
+}
+
 static bool print_float64(void *ptr, size_t size, size_t nmemb,
                           struct app *self) {
   assert(size == 1);
@@ -427,9 +469,16 @@ static bool print(struct app *self, const uint8_t group,
   case ISO_8859_1_STRING:
     ret = print_iso(data->buffer, 1, data->len, self);
     break;
+  case FLOAT32_VM2N:
+    ret = print_float32_vm2n(data->buffer, 1, data->len, self);
+    break;
+  case FLOAT32_VM3N:
+    ret = print_float32_vm3n(data->buffer, 1, data->len, self);
+    break;
   case DATETIME:
     ret = print_datetime(data->buffer, 1, data->len, self);
     break;
+  case STRUCT_136:
   case STRUCT_436:
   case STRUCT_516:
   case STRUCT_325:
