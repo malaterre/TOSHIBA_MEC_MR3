@@ -142,6 +142,7 @@ enum Type {
   STRUCT_325 = 0x001f4600, // Fixed struct 325 bytes (struct with ASCII strings)
   BOOL_04 = 0xff000400,    // bool/32bits
   FLOAT32 = 0xff000800,    // float/32bits
+  INT32 = 0xff002400,      // int32_t (signed)
   FLOAT64 = 0xff002900,    // float/64bits
   BOOL_2A = 0xff002a00,    // bool/32bits
   SHIFT_JIS_STRING = 0xff002c00, // SHIFT-JIS string
@@ -275,7 +276,7 @@ struct buffer516 {
   char buf2[0x15];
   char buf3[0x100]; // phi
   str16 buf4;
-  str64 buf5;
+  str64 buf5; // Study Instance UID
   str64 buf6;
   uint32_t bools[6];
 };
@@ -363,10 +364,26 @@ static bool print_shift_jis(void *ptr, size_t size, size_t nmemb,
   return true;
 }
 
+static void print_int(const int32_t *buffer, int len) {
+  const int m = sizeof(int32_t);
+  assert(len % m == 0);
+  int i;
+  printf("[");
+  for (i = 0; i < len / m; i++) {
+    if (i)
+      printf(",");
+    int32_t cur = -1;
+    memcpy(&cur, buffer + i, sizeof cur);
+    printf("%d", cur);
+  }
+  printf("]");
+}
+
 static void print_float(const float *buffer, int len) {
   const int m = sizeof(float);
   assert(len % m == 0);
   int i;
+  printf("[");
   for (i = 0; i < len / m; i++) {
     if (i)
       printf(",");
@@ -375,13 +392,14 @@ static void print_float(const float *buffer, int len) {
     assert(isfinite(cur) && !isnan(cur));
     printf("%f", cur);
   }
+  printf("]");
 }
 
 static void print_double(const double *buffer, int len) {
   const int m = sizeof(double);
   assert(len % m == 0);
   int i;
-  printf(" [");
+  printf("[");
   for (i = 0; i < len / m; i++) {
     if (i)
       printf(",");
@@ -390,6 +408,32 @@ static void print_double(const double *buffer, int len) {
     printf("%g", cur);
   }
   printf("]");
+}
+
+static bool print_int32(void *ptr, size_t size, size_t nmemb,
+                        struct app *self) {
+  assert(size == 1);
+  (void)self;
+  // assert(nmemb == 4 || nmemb == 8 || nmemb == 12 || nmembnmemb == 24 || nmemb
+  // == 32 || nmemb == 48);
+  assert(nmemb % 4 == 0);
+  // FIXME need to do the allocation/aligned correctly:
+#if 1
+  int32_t *i = aligned_alloc(4, nmemb);
+  assert(i);
+  assert((uintptr_t)(void *)i % 4 == 0);
+  memcpy(i, ptr, nmemb);
+  print_int(i, nmemb);
+  free(i);
+#else
+  float *i = aligned_alloc(4, nmemb);
+  assert(i);
+  assert((uintptr_t)(void *)i % 4 == 0);
+  memcpy(i, ptr, nmemb);
+  print_float(i, nmemb);
+  free(i);
+#endif
+  return true;
 }
 
 static bool print_float32(void *ptr, size_t size, size_t nmemb,
@@ -408,9 +452,22 @@ static bool print_float32_vm2n(void *ptr, size_t size, size_t nmemb,
   assert(size == 1);
   (void)self;
   assert(nmemb == 8 || nmemb == 40);
-  float f[10];
-  memcpy(f, ptr, nmemb);
-  print_float(f, nmemb);
+  if (nmemb == 8) {
+#if 1
+    float f[2];
+    memcpy(f, ptr, nmemb);
+    print_float(f, nmemb);
+#else
+    double f[1];
+    memcpy(f, ptr, nmemb);
+    print_double(f, nmemb);
+#endif
+  } else if (nmemb == 40) {
+    // TODO: FIXME ? wotsit with high/low value
+    double f[5];
+    memcpy(f, ptr, nmemb);
+    print_double(f, nmemb);
+  }
   return true;
 }
 
@@ -489,6 +546,9 @@ static bool print(struct app *self, const uint8_t group,
     break;
   case FLOAT32:
     ret = print_float32(data->buffer, 1, data->len, self);
+    break;
+  case INT32:
+    ret = print_int32(data->buffer, 1, data->len, self);
     break;
   case FLOAT64:
     ret = print_float64(data->buffer, 1, data->len, self);
