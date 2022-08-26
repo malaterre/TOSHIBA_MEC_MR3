@@ -142,9 +142,9 @@ enum Type {
   STRUCT_325 = 0x001f4600, // Fixed struct 325 bytes (struct with ASCII strings)
   BOOL_04 = 0xff000400,    // bool/32bits
   FLOAT32_VM1 = 0xff000800,      // float/32bits
-  INT32 = 0xff002400,            // int32_t (signed)
+  INT32_VM1N = 0xff002400,       // int32_t (signed)
   FLOAT32_VM1N = 0xff002800,     // float/32bits
-  FLOAT64 = 0xff002900,          // float/64bits
+  FLOAT64_VM1 = 0xff002900,      // float/64bits
   BOOL_2A = 0xff002a00,          // bool/32bits
   SHIFT_JIS_STRING = 0xff002c00, // SHIFT-JIS string
 };
@@ -566,13 +566,13 @@ static bool print(struct app *self, const uint8_t group,
   case FLOAT32_VM1:
     ret = print_float32(data->buffer, 1, data->len, self);
     break;
-  case INT32:
+  case INT32_VM1N:
     ret = print_int32(data->buffer, 1, data->len, self);
     break;
   case FLOAT32_VM1N:
     ret = print_float32_vm1n(data->buffer, 1, data->len, self);
     break;
-  case FLOAT64:
+  case FLOAT64_VM1:
     ret = print_float64(data->buffer, 1, data->len, self);
     break;
   case BOOL_04:
