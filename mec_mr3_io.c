@@ -105,6 +105,21 @@ static bool read_info(struct app *self, const uint8_t group,
   return true;
 }
 
+static void *mec_mr3_aligned_alloc(size_t alignment, size_t size) {
+  return aligned_alloc(alignment, size);
+}
+
+static void *mec_mr3_aligned_realloc(void *ptr, size_t size) {
+  if (ptr)
+    free(ptr);
+  return mec_mr3_aligned_alloc(64u, size);
+}
+
+static inline bool is_aligned(const void *restrict pointer, size_t byte_count) {
+  // https://stackoverflow.com/questions/1898153/how-to-determine-if-memory-is-aligned
+  return (uintptr_t)pointer % byte_count == 0;
+}
+
 static bool read_data(struct app *self, const uint8_t group,
                       const struct mec_mr3_info *info,
                       struct mec_mr3_item_data *data) {
@@ -119,7 +134,7 @@ static bool read_data(struct app *self, const uint8_t group,
   ERROR_RETURN(s, sizeof separator / sizeof *separator);
   int b = memcmp(separator, magic2, sizeof(magic2));
   ERROR_RETURN(b, 0);
-  data->buffer = (char *)realloc(data->buffer, data->len);
+  data->buffer = (char *)mec_mr3_aligned_realloc(data->buffer, data->len);
   if (data->len != 0 && data->buffer == NULL) {
     return false;
   }
@@ -367,6 +382,7 @@ static bool print_shift_jis(void *ptr, size_t size, size_t nmemb,
 
 static void print_int(const int32_t *buffer, int len) {
   const int m = sizeof(int32_t);
+  assert(is_aligned(buffer, m));
   assert(len % m == 0);
   int i;
   printf("[");
@@ -382,6 +398,7 @@ static void print_int(const int32_t *buffer, int len) {
 
 static void print_float(const float *buffer, int len) {
   const int m = sizeof(float);
+  assert(is_aligned(buffer, m));
   assert(len % m == 0);
   int i;
   printf("[");
@@ -398,6 +415,7 @@ static void print_float(const float *buffer, int len) {
 
 static void print_double(const double *buffer, int len) {
   const int m = sizeof(double);
+  assert(is_aligned(buffer, m));
   assert(len % m == 0);
   int i;
   printf("[");
@@ -418,22 +436,7 @@ static bool print_int32(void *ptr, size_t size, size_t nmemb,
   // assert(nmemb == 4 || nmemb == 8 || nmemb == 12 || nmembnmemb == 24 || nmemb
   // == 32 || nmemb == 48);
   assert(nmemb % 4 == 0);
-  // FIXME need to do the allocation/aligned correctly:
-#if 1
-  int32_t *i = aligned_alloc(4, nmemb);
-  assert(i);
-  assert((uintptr_t)(void *)i % 4 == 0);
-  memcpy(i, ptr, nmemb);
-  print_int(i, nmemb);
-  free(i);
-#else
-  float *i = aligned_alloc(4, nmemb);
-  assert(i);
-  assert((uintptr_t)(void *)i % 4 == 0);
-  memcpy(i, ptr, nmemb);
-  print_float(i, nmemb);
-  free(i);
-#endif
+  print_int(ptr, nmemb);
   return true;
 }
 
@@ -442,9 +445,7 @@ static bool print_float32(void *ptr, size_t size, size_t nmemb,
   assert(size == 1);
   (void)self;
   assert(nmemb == 4);
-  float f;
-  memcpy(&f, ptr, nmemb);
-  print_float(&f, nmemb);
+  print_float(ptr, nmemb);
   return true;
 }
 
@@ -454,12 +455,7 @@ static bool print_float32_vm1n(void *ptr, size_t size, size_t nmemb,
   (void)self;
   assert(nmemb % 4 == 0);
 
-  float *i = aligned_alloc(4, nmemb);
-  assert(i);
-  assert((uintptr_t)(void *)i % 4 == 0);
-  memcpy(i, ptr, nmemb);
-  print_float(i, nmemb);
-  free(i);
+  print_float(ptr, nmemb);
 
   return true;
 }
@@ -470,22 +466,8 @@ static bool print_float32_vm2n(void *ptr, size_t size, size_t nmemb,
   (void)self;
   assert((nmemb / 4) % 2 == 0);
   assert(nmemb == 8 || nmemb == 40);
-  if (nmemb == 8) {
-#if 1
-    float f[2];
-    memcpy(f, ptr, nmemb);
-    print_float(f, nmemb);
-#else
-    double f[1];
-    memcpy(f, ptr, nmemb);
-    print_double(f, nmemb);
-#endif
-  } else if (nmemb == 40) {
-    // TODO: FIXME ? wotsit with high/low value
-    double f[5];
-    memcpy(f, ptr, nmemb);
-    print_double(f, nmemb);
-  }
+  // FIXME: low/high value for nmemb==40 makes them look like double...
+  print_float(ptr, nmemb);
   return true;
 }
 
@@ -495,9 +477,7 @@ static bool print_float32_vm3n(void *ptr, size_t size, size_t nmemb,
   (void)self;
   assert((nmemb / 4) % 3 == 0);
   assert(nmemb == 12 || nmemb == 36);
-  float f[10];
-  memcpy(f, ptr, nmemb);
-  print_float(f, nmemb);
+  print_float(ptr, nmemb);
   return true;
 }
 
@@ -506,15 +486,14 @@ static bool print_float64(void *ptr, size_t size, size_t nmemb,
   assert(size == 1);
   (void)self;
   assert(nmemb == 8);
-  double d;
-  memcpy(&d, ptr, nmemb);
-  print_double(&d, nmemb);
+  print_double(ptr, nmemb);
   return true;
 }
 
 static bool print_bool32(void *ptr, size_t size, size_t nmemb,
                          struct app *self) {
   assert(size == 1);
+  assert(is_aligned(ptr, 4));
   (void)self;
   assert(nmemb == 4);
   uint32_t u;
