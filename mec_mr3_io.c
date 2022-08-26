@@ -454,6 +454,7 @@ static bool print_int32(void *ptr, size_t size, size_t nmemb,
   // == 32 || nmemb == 48);
   assert(nmemb % 4 == 0);
   print_int(ptr, nmemb);
+
   return true;
 }
 
@@ -463,6 +464,7 @@ static bool print_float32(void *ptr, size_t size, size_t nmemb,
   (void)self;
   assert(nmemb == 4);
   print_float(ptr, nmemb);
+
   return true;
 }
 
@@ -471,7 +473,6 @@ static bool print_float32_vm1n(void *ptr, size_t size, size_t nmemb,
   assert(size == 1);
   (void)self;
   assert(nmemb % 4 == 0);
-
   print_float(ptr, nmemb);
 
   return true;
@@ -485,6 +486,7 @@ static bool print_float32_vm2n(void *ptr, size_t size, size_t nmemb,
   assert(nmemb == 8 || nmemb == 40);
   // FIXME: low/high value for nmemb==40 makes them look like double...
   print_float(ptr, nmemb);
+
   return true;
 }
 
@@ -495,6 +497,7 @@ static bool print_float32_vm3n(void *ptr, size_t size, size_t nmemb,
   assert((nmemb / 4) % 3 == 0);
   assert(nmemb == 12 || nmemb == 36);
   print_float(ptr, nmemb);
+
   return true;
 }
 
