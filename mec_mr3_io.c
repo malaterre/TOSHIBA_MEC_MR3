@@ -35,12 +35,14 @@ static size_t stream_read(void *ptr, size_t size, size_t nmemb,
 struct app {
   struct stream *in;
   iconv_t conv;
+  void *shift_jis_buffer;
 };
 
 static struct app *create_app(struct app *self, struct stream *in) {
   self->in = in;
   self->conv = iconv_open("utf-8", "shift-jis");
   assert(self->conv != (iconv_t)-1);
+  self->shift_jis_buffer = NULL;
 
   return self;
 }
@@ -88,7 +90,8 @@ struct mec_mr3_info {
 
 struct mec_mr3_item_data {
   uint32_t len;
-  char *buffer;
+  void *buffer;
+  size_t size; // aligned/realloc implementation detail
 };
 
 static const unsigned char magic2[] = {0, 0, 0, 0, 0, 0, 0, 0, 0xc, 0,
@@ -105,14 +108,28 @@ static bool read_info(struct app *self, const uint8_t group,
   return true;
 }
 
-static void *mec_mr3_aligned_alloc(size_t alignment, size_t size) {
+static void *aligned_alloc_impl(size_t alignment, size_t size) {
   return aligned_alloc(alignment, size);
 }
 
-static void *mec_mr3_aligned_realloc(void *ptr, size_t size) {
-  if (ptr)
-    free(ptr);
-  return mec_mr3_aligned_alloc(64u, size);
+static struct mec_mr3_item_data *
+mec_mr3_aligned_realloc(struct mec_mr3_item_data *data, size_t size) {
+  if (!data)
+    return NULL;
+  // fast path
+  if (size <= data->size) {
+    return data;
+  }
+  // else need to reallocate
+  const size_t guesstimate = size < 4096 ? 4096 : 2 * size;
+  void *buffer = aligned_alloc_impl(64u, guesstimate);
+  if (!buffer)
+    return NULL;
+  if (data->buffer)
+    free(data->buffer);
+  data->buffer = buffer;
+  data->size = guesstimate;
+  return data;
 }
 
 static inline bool is_aligned(const void *restrict pointer, size_t byte_count) {
@@ -134,8 +151,8 @@ static bool read_data(struct app *self, const uint8_t group,
   ERROR_RETURN(s, sizeof separator / sizeof *separator);
   int b = memcmp(separator, magic2, sizeof(magic2));
   ERROR_RETURN(b, 0);
-  data->buffer = (char *)mec_mr3_aligned_realloc(data->buffer, data->len);
-  if (data->len != 0 && data->buffer == NULL) {
+  data = mec_mr3_aligned_realloc(data, data->len);
+  if (data == NULL) {
     return false;
   }
 
@@ -362,7 +379,8 @@ static bool print_shift_jis(void *ptr, size_t size, size_t nmemb,
   char *str = ptr;
   {
     char *gbk_str = str;
-    char *dest_str = (char *)malloc(nmemb * 2);
+    self->shift_jis_buffer = realloc(self->shift_jis_buffer, nmemb * 2);
+    char *dest_str = self->shift_jis_buffer;
     char *out = dest_str;
     size_t inbytes = nmemb;
     size_t outbytes = nmemb * 2;
@@ -375,7 +393,6 @@ static bool print_shift_jis(void *ptr, size_t size, size_t nmemb,
     dest_str[nmemb * 2 - outbytes] = 0;
     // printf("[%.*s]", (int)outbytes, dest_str);
     printf("[%s]", dest_str);
-    free(dest_str);
   }
   return true;
 }
@@ -594,7 +611,7 @@ bool mec_mr3_print(const void *input, size_t len) {
   bool good = true;
   struct mec_mr3_info info;
   struct mec_mr3_item_data data;
-  data.len = 0;
+  data.size = data.len = 0;
   data.buffer = NULL;
 
   uint32_t remain = 1;
@@ -634,6 +651,7 @@ bool mec_mr3_print(const void *input, size_t len) {
   // release memory:
   free(data.buffer);
   iconv_close(self->conv);
+  free(self->shift_jis_buffer);
   if (!good)
     return false;
 
