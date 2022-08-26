@@ -141,10 +141,11 @@ enum Type {
   STRUCT_516 = 0x001f4400, // Fixed struct 516 bytes (struct with ASCII strings)
   STRUCT_325 = 0x001f4600, // Fixed struct 325 bytes (struct with ASCII strings)
   BOOL_04 = 0xff000400,    // bool/32bits
-  FLOAT32 = 0xff000800,    // float/32bits
-  INT32 = 0xff002400,      // int32_t (signed)
-  FLOAT64 = 0xff002900,    // float/64bits
-  BOOL_2A = 0xff002a00,    // bool/32bits
+  FLOAT32_VM1 = 0xff000800,      // float/32bits
+  INT32 = 0xff002400,            // int32_t (signed)
+  FLOAT32_VM1N = 0xff002800,     // float/32bits
+  FLOAT64 = 0xff002900,          // float/64bits
+  BOOL_2A = 0xff002a00,          // bool/32bits
   SHIFT_JIS_STRING = 0xff002c00, // SHIFT-JIS string
 };
 
@@ -447,10 +448,27 @@ static bool print_float32(void *ptr, size_t size, size_t nmemb,
   return true;
 }
 
+static bool print_float32_vm1n(void *ptr, size_t size, size_t nmemb,
+                               struct app *self) {
+  assert(size == 1);
+  (void)self;
+  assert(nmemb % 4 == 0);
+
+  float *i = aligned_alloc(4, nmemb);
+  assert(i);
+  assert((uintptr_t)(void *)i % 4 == 0);
+  memcpy(i, ptr, nmemb);
+  print_float(i, nmemb);
+  free(i);
+
+  return true;
+}
+
 static bool print_float32_vm2n(void *ptr, size_t size, size_t nmemb,
                                struct app *self) {
   assert(size == 1);
   (void)self;
+  assert((nmemb / 4) % 2 == 0);
   assert(nmemb == 8 || nmemb == 40);
   if (nmemb == 8) {
 #if 1
@@ -475,6 +493,7 @@ static bool print_float32_vm3n(void *ptr, size_t size, size_t nmemb,
                                struct app *self) {
   assert(size == 1);
   (void)self;
+  assert((nmemb / 4) % 3 == 0);
   assert(nmemb == 12 || nmemb == 36);
   float f[10];
   memcpy(f, ptr, nmemb);
@@ -544,11 +563,14 @@ static bool print(struct app *self, const uint8_t group,
   case SHIFT_JIS_STRING:
     ret = print_shift_jis(data->buffer, 1, data->len, self);
     break;
-  case FLOAT32:
+  case FLOAT32_VM1:
     ret = print_float32(data->buffer, 1, data->len, self);
     break;
   case INT32:
     ret = print_int32(data->buffer, 1, data->len, self);
+    break;
+  case FLOAT32_VM1N:
+    ret = print_float32_vm1n(data->buffer, 1, data->len, self);
     break;
   case FLOAT64:
     ret = print_float64(data->buffer, 1, data->len, self);
